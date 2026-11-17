@@ -1,7 +1,8 @@
 #!/bin/bash
 # Removes what install.sh added: the hooks, the theme link, the bevel bar and
-# the font. It refuses while memphis is the current theme, because the theme
-# hook must restore the user's values first. Packages stay installed.
+# the font. When memphis.bar is the active bar, it switches the bar back to
+# omarchy.bar first. It refuses while memphis is the current theme, because
+# the theme hook must restore the user's values first. Packages stay installed.
 
 set -euo pipefail
 
@@ -26,8 +27,9 @@ usage() {
   cat <<USAGE
 Usage: ./uninstall.sh [--dry-run] [-h]
 
-Removes the Memphis hooks, theme link, bevel bar and font. Switch to another
-theme first.
+Removes the Memphis hooks, theme link, bevel bar and font. When memphis.bar
+is the active bar, it runs 'omarchy bar reset' first. Switch to another theme
+first.
 
   --dry-run       Print each action and change nothing
   -h, --help      Show this help
@@ -91,14 +93,23 @@ elif [[ -e $THEME_LINK ]]; then
   warn "$THEME_LINK is not a link from this repo; leaving it (remove it with omarchy theme remove)"
 fi
 
+# The bar goes back to omarchy.bar before the plugin goes, so the shell never
+# points at a missing bar.
 if [[ -e $PLUGIN ]] && [[ $(jq -r '.id // ""' "$PLUGIN/manifest.json" 2>/dev/null) != "memphis.bar" ]]; then
   warn "$PLUGIN is not the Memphis bevel bar; leaving it"
-elif [[ -e $PLUGIN ]]; then
+else
+  keep_plugin=0
   if [[ -s $SHELL_JSON ]] && [[ $(jq -r '.bar.id // ""' "$SHELL_JSON" 2>/dev/null) == "memphis.bar" ]]; then
-    warn "the bar still uses memphis.bar; run 'omarchy bar reset' after this"
+    say "Switching the bar from memphis.bar back to omarchy.bar (the shell reloads the bar)"
+    if ! run omarchy bar reset; then
+      warn "omarchy bar reset failed; keeping $PLUGIN. Run 'omarchy bar reset', then ./uninstall.sh again"
+      keep_plugin=1
+    fi
   fi
-  say "Removing the bevel bar $PLUGIN"
-  run rm -rf -- "$PLUGIN"
+  if [[ -e $PLUGIN ]] && ((!keep_plugin)); then
+    say "Removing the bevel bar $PLUGIN"
+    run rm -rf -- "$PLUGIN"
+  fi
 fi
 
 if [[ -d $FONT_DIR ]]; then

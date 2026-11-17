@@ -1,7 +1,8 @@
 #!/bin/bash
 # Runs the Memphis hooks under a temporary HOME with stub gsettings, hyprctl
 # and omarchy. A switch to memphis and back to jade-horse must leave gsettings,
-# the bar and gtk-4.0/gtk.css byte-identical to the seed.
+# shell.json and gtk-4.0/gtk.css byte-identical to the seed. The theme hook
+# must never switch the bar engine.
 
 set -euo pipefail
 
@@ -43,18 +44,33 @@ GS="org.gnome.desktop.interface"
 gs() { gsettings get "$GS" "$1"; }
 cursor() { cat "$STUB_STATE/hyprctl.cursor" 2>/dev/null || true; }
 
+# A bar engine switch during `omarchy theme set` races the theme apply.
+assert_no_bar_switch() {
+  local log="$1"
+  if grep -E '^omarchy bar (use|reset)' "$log"; then
+    fail "theme-set switched the bar engine"
+  fi
+}
+
 # Omarchy writes theme.name and resets gtk-theme before the hook runs.
 switch_to() {
   local slug="$1" gtk_theme="$2"
   mkdir -p "${THEME_NAME%/*}"
   echo "$slug" >"$THEME_NAME"
   gsettings set "$GS" gtk-theme "$gtk_theme"
+  local before
+  before=$(wc -l <"$STUB_STATE/calls.log")
   bash "$HOOKS/theme-set" "$slug" 2>>"$TMP/stderr.log"
+  assert_no_bar_switch <(tail -n +"$((before + 1))" "$STUB_STATE/calls.log")
 }
 
+# The seed bar engine is memphis.bar, as install.sh leaves it. Pass "" for the
+# stock bar (no .bar.id) or another id for a custom bar.
 seed() {
+  local bar_id="${1-memphis.bar}"
   rm -rf "$HOME" "$STUB_STATE" "$TMP/themes" "$TMP/icons"
   mkdir -p "$HOME" "$STUB_STATE"
+  : >"$STUB_STATE/calls.log"
 
   gsettings set "$GS" gtk-theme "Adwaita-dark"
   gsettings set "$GS" cursor-theme "'Yaru'"
@@ -62,7 +78,7 @@ seed() {
   gsettings set "$GS" font-name "'Adwaita Sans 11'"
 
   mkdir -p "$CONFIG/omarchy" "$CONFIG/gtk-4.0"
-  jq -S . >"$SHELL_JSON" <<'JSON'
+  jq -S --arg id "$bar_id" 'if $id == "" then . else .bar.id = $id end' >"$SHELL_JSON" <<'JSON'
 {"version": 1, "bar": {"position": "top", "background": "opaque",
  "layout": {"left": ["omarchy.workspaces"], "center": ["omarchy.clock"], "right": ["omarchy.tray"]}},
  "plugins": []}
@@ -123,7 +139,7 @@ eq "$(gs font-name)" "'W95FA 11'" "font-name"
 eq "$(cursor)" "Chicago95_Cursor_Black 24" "hyprctl setcursor"
 eq "$(jq -r '.bar.id' "$SHELL_JSON")" "memphis.bar" "bar id"
 eq "$(jq -r '.bar.position' "$SHELL_JSON")" "bottom" "bar position"
-ok "memphis applies gtk-theme, cursor, font, bar and position"
+ok "memphis applies gtk-theme, cursor, font and position"
 
 eq "$(head -n 3 "$GTK4_CSS")" "/* memphis:begin */
 @import url(\"file://$TMP/themes/Chicago95/gtk-4.0/gtk.css\");
@@ -134,7 +150,6 @@ ok "memphis adds the gtk-4.0 import block first and keeps the other lines"
 eq "$(cat "$SAVED")" "cursor_theme='Yaru'
 cursor_size=24
 font_name='Adwaita Sans 11'
-bar_id=omarchy.bar
 bar_position=top
 gtk4_css_existed=1" "saved.env"
 ok "memphis writes the saved state"
@@ -152,7 +167,7 @@ ok "memphis to memphis keeps the first saved state and one block"
 switch_to jade-horse Adwaita-dark
 assert_seed_restored
 eq "$(cursor)" "Yaru 24" "hyprctl setcursor on restore"
-ok "jade-horse restores gsettings, bar, position and gtk.css byte-identically"
+ok "jade-horse restores gsettings, position and gtk.css byte-identically"
 
 cp "$STUB_STATE/calls.log" "$TMP/calls.before"
 bash "$HOOKS/theme-set" jade-horse 2>>"$TMP/stderr.log"
@@ -182,10 +197,10 @@ switch_to memphis Adwaita
 eq "$(gs gtk-theme)" "'Adwaita'" "gtk-theme without Chicago95"
 eq "$(gs cursor-theme)" "'Yaru'" "cursor-theme without the cursor theme"
 eq "$(gs font-name)" "'Adwaita Sans 11'" "font-name without the font"
-eq "$(jq -r '.bar.id // "omarchy.bar"' "$SHELL_JSON")" "omarchy.bar" "bar id without memphis.bar"
-eq "$(jq -r '.bar.position' "$SHELL_JSON")" "bottom" "bar position without memphis.bar"
+eq "$(jq -r '.bar.id' "$SHELL_JSON")" "memphis.bar" "bar id without the memphis.bar plugin"
+eq "$(jq -r '.bar.position' "$SHELL_JSON")" "bottom" "bar position without the memphis.bar plugin"
 cmp "$TMP/seed/gtk.css" "$GTK4_CSS" || fail "gtk.css changed without Chicago95"
-for word in Chicago95 Chicago95_Cursor_Black font memphis.bar; do
+for word in Chicago95 Chicago95_Cursor_Black font; do
   grep -q "$word" "$TMP/stderr.log" || fail "no warning about $word"
 done
 switch_to jade-horse Adwaita-dark
@@ -228,9 +243,9 @@ ok "theme-set runs when theme.name is missing"
 # Omarchy reads its config from $HOME/.config whatever XDG_CONFIG_HOME says.
 seed
 XDG_CONFIG_HOME="$TMP/xdg" switch_to memphis Adwaita
-eq "$(jq -r '.bar.id' "$SHELL_JSON")" "memphis.bar" "bar id with XDG_CONFIG_HOME"
+eq "$(jq -r '.bar.position' "$SHELL_JSON")" "bottom" "bar position with XDG_CONFIG_HOME"
 XDG_CONFIG_HOME="$TMP/xdg" switch_to jade-horse Adwaita-dark
-eq "$(jq -r '.bar.id // "omarchy.bar"' "$SHELL_JSON")" "omarchy.bar" "bar id restored with XDG_CONFIG_HOME"
+cmp "$TMP/seed/shell.json" "$SHELL_JSON" || fail "shell.json differs from the seed with XDG_CONFIG_HOME"
 [[ ! -e $TMP/xdg/omarchy ]] || fail "theme-set wrote Omarchy config under XDG_CONFIG_HOME"
 rm -rf "$TMP/xdg"
 ok "theme-set finds the bar under \$HOME/.config when XDG_CONFIG_HOME is elsewhere"
@@ -245,7 +260,7 @@ switch_to memphis Adwaita
 for key in cursor_theme font_name bar_position; do
   ! grep -q "^$key=" "$SAVED" || fail "saved.env kept the Memphis $key: $(cat "$SAVED")"
 done
-grep -qx 'bar_id=omarchy.bar' "$SAVED" || fail "saved.env does not name omarchy.bar: $(cat "$SAVED")"
+! grep -q '^bar_id=' "$SAVED" || fail "saved.env holds a bar_id: $(cat "$SAVED")"
 grep -qx 'gtk4_css_existed=1' "$SAVED" || fail "saved.env lost the user's gtk.css: $(cat "$SAVED")"
 : >"$STUB_STATE/calls.log"
 switch_to jade-horse Adwaita-dark
@@ -255,7 +270,7 @@ fi
 eq "$(gs cursor-theme)" "'Chicago95_Cursor_Black'" "cursor-theme after a lost saved state"
 eq "$(gs font-name)" "'W95FA 11'" "font-name after a lost saved state"
 eq "$(jq -r '.bar.position' "$SHELL_JSON")" "bottom" "bar position after a lost saved state"
-eq "$(jq -r '.bar.id // "omarchy.bar"' "$SHELL_JSON")" "omarchy.bar" "bar id after a lost saved state"
+eq "$(jq -r '.bar.id' "$SHELL_JSON")" "memphis.bar" "bar id after a lost saved state"
 cmp "$TMP/seed/gtk.css" "$GTK4_CSS" || fail "gtk.css differs from the seed after a lost saved state"
 [[ ! -e $SAVED ]] || fail "saved.env was not deleted"
 ok "a lost saved state does not save or restore Memphis values"
@@ -269,6 +284,36 @@ grep -qx 'gtk4_css_existed=0' "$SAVED" || fail "a gtk.css with only our block co
 switch_to jade-horse Adwaita-dark
 [[ ! -e $GTK4_CSS ]] || fail "gtk.css with only our block was left behind"
 ok "a gtk.css that holds only the Memphis block does not count as the user's"
+
+# ------------------------------------------------------------ bar engine
+
+# install.sh owns the bar engine. theme-set keeps any engine under every theme.
+for engine in "" local.neon-bar; do
+  seed "$engine"
+  switch_to memphis Adwaita
+  cmp <(jq -S 'del(.bar.position)' "$TMP/seed/shell.json") <(jq -S 'del(.bar.position)' "$SHELL_JSON") ||
+    fail "memphis changed shell.json beyond the position with engine [${engine:-omarchy.bar}]"
+  switch_to jade-horse Adwaita-dark
+  assert_seed_restored
+done
+ok "theme-set keeps the stock bar and a custom bar as the engine"
+
+# A bar_id line from an older hook must not switch the engine back.
+seed
+switch_to memphis Adwaita
+printf '%s\n' 'bar_id=omarchy.bar' >>"$SAVED"
+: >"$TMP/stderr.log"
+switch_to jade-horse Adwaita-dark
+assert_seed_restored
+eq "$(jq -r '.bar.id' "$SHELL_JSON")" "memphis.bar" "bar id after a legacy bar_id"
+[[ ! -s $TMP/stderr.log ]] || fail "a legacy bar_id caused warnings: $(cat "$TMP/stderr.log")"
+ok "a legacy bar_id in saved.env is ignored and the restore completes"
+
+seed
+switch_to memphis Adwaita
+switch_to jade-horse Adwaita-dark
+assert_no_bar_switch "$STUB_STATE/calls.log"
+ok "theme-set never runs omarchy bar use or omarchy bar reset"
 
 # ------------------------------------------------------------ post-boot
 

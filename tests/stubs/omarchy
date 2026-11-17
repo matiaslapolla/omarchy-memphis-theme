@@ -33,6 +33,8 @@ case "${1:-} ${2:-}" in
     echo "Using $id as the active bar"
     ;;
   "bar reset")
+    # Lets a test check which plugins still existed when the bar was reset.
+    ls -A "$HOME/.config/omarchy/plugins" >"$STUB_STATE/bar-reset.plugins" 2>/dev/null || true
     commit 'del(.bar.id)'
     echo "Using omarchy.bar as the active bar"
     ;;

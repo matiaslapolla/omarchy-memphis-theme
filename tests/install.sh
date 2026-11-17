@@ -92,6 +92,17 @@ CONFIG="$HOME/.config"
 LINK="$CONFIG/omarchy/themes/memphis"
 FONT_DIR="$HOME/.local/share/fonts/memphis"
 PLUGIN="$CONFIG/omarchy/plugins/memphis.bar"
+SHELL_JSON="$CONFIG/omarchy/shell.json"
+
+bar_id() { if [[ -s $SHELL_JSON ]]; then jq -r '.bar.id // "omarchy.bar"' "$SHELL_JSON"; else echo omarchy.bar; fi; }
+
+# Prints the omarchy, gsettings and hyprctl calls, one per line.
+live_calls() { grep -E '^(omarchy|gsettings|hyprctl) ' "$STUB_STATE/calls.log" || true; }
+
+set_bar_id() {
+  mkdir -p "${SHELL_JSON%/*}"
+  jq -nS --arg id "$1" '{bar: {id: $id, position: "top"}}' >"$SHELL_JSON"
+}
 
 # ------------------------------------------------------------ dry run
 
@@ -101,6 +112,7 @@ out=$(bash "$REPO/install.sh" --dry-run)
 [[ $(snapshot) == "$before" ]] || fail "install --dry-run changed HOME"
 [[ $out == *"[dry-run]"* ]] || fail "install --dry-run printed no actions"
 [[ $out == *"[dry-run] yay -S"* ]] || fail "install --dry-run did not show the yay step"
+[[ $out == *"[dry-run] omarchy bar use memphis.bar"* ]] || fail "install --dry-run did not show the bar switch"
 [[ ! -s $STUB_STATE/calls.log ]] || fail "install --dry-run ran commands: $(cat "$STUB_STATE/calls.log")"
 ok "install --dry-run prints the actions and changes nothing"
 
@@ -124,15 +136,22 @@ grep -qx "fc-cache -f $FONT_DIR" "$STUB_STATE/calls.log" || fail "fc-cache did n
 [[ $(jq -r .id "$PLUGIN/manifest.json") == "memphis.bar" ]] || fail "memphis.bar not built"
 [[ -z $(find "$CONFIG/omarchy/plugins" -maxdepth 1 -name '.memphis-*') ]] || fail "install left a build dir"
 ! grep -q '^yay ' "$STUB_STATE/calls.log" || fail "--no-packages ran yay"
-! grep -qE '^(omarchy|gsettings|hyprctl) ' "$STUB_STATE/calls.log" || fail "install ran a live command"
+[[ $(live_calls) == "omarchy bar use memphis.bar" ]] || fail "install ran other live commands: $(live_calls)"
 [[ $out == *"omarchy theme set memphis"* ]] || fail "install did not print the final instruction"
 ok "install --no-packages links the theme, copies hooks and font, builds the bar"
 
+[[ $(bar_id) == memphis.bar ]] || fail "install did not make memphis.bar the bar engine: $(bar_id)"
+[[ $out == *"Switching the bar from omarchy.bar to memphis.bar"* ]] || fail "install did not say it switches the bar"
+ok "install switches the bar engine from the stock bar to memphis.bar"
+
+: >"$STUB_STATE/calls.log"
 bash "$REPO/install.sh" --no-packages >/dev/null
 [[ -z $(find "$CONFIG/omarchy" -maxdepth 2 -name 'memphis-theme.old.*') ]] ||
   fail "a second install moved the theme link aside"
 [[ $(readlink -f "$LINK") == "$REPO" ]] || fail "a second install broke the link"
-ok "a second install keeps the link and moves nothing aside"
+[[ -z $(live_calls) ]] || fail "a second install ran live commands: $(live_calls)"
+[[ $(bar_id) == memphis.bar ]] || fail "a second install changed the bar engine"
+ok "a second install keeps the link, the bar engine and moves nothing aside"
 
 before=$(snapshot)
 : >"$STUB_STATE/calls.log"
@@ -161,9 +180,10 @@ ok "uninstall has no --no-packages option"
 set_theme jade-horse
 before=$(snapshot)
 : >"$STUB_STATE/calls.log"
-bash "$REPO/uninstall.sh" --dry-run >/dev/null
+out=$(bash "$REPO/uninstall.sh" --dry-run)
 [[ $(snapshot) == "$before" ]] || fail "uninstall --dry-run changed HOME"
 [[ ! -s $STUB_STATE/calls.log ]] || fail "uninstall --dry-run ran commands"
+[[ $out == *"[dry-run] omarchy bar reset"* ]] || fail "uninstall --dry-run did not show the bar reset"
 ok "uninstall --dry-run changes nothing"
 
 out=$(bash "$REPO/uninstall.sh")
@@ -175,10 +195,63 @@ done
 [[ ! -e $FONT_DIR ]] || fail "uninstall left the font"
 [[ $out == *"yay -R chicago95-gtk-theme-git chicago95-icon-theme-git xcursor-chicago95-git"* ]] ||
   fail "uninstall did not print the package removal command"
-! grep -qE '^(yay|omarchy|gsettings|hyprctl) ' "$STUB_STATE/calls.log" || fail "uninstall ran a live command"
-leftover=$(find "$HOME" -path "$HOME/.local/state" -prune -o \( -type f -o -type l \) -print)
+! grep -q '^yay ' "$STUB_STATE/calls.log" || fail "uninstall ran yay"
+[[ $(live_calls) == "omarchy bar reset" ]] || fail "uninstall ran other live commands: $(live_calls)"
+# Omarchy keeps shell.json; only the bar id goes.
+leftover=$(find "$HOME" -path "$HOME/.local/state" -prune -o -path "$SHELL_JSON" -prune -o \( -type f -o -type l \) -print)
 [[ -z $leftover ]] || fail "uninstall left files: $leftover"
 ok "uninstall removes hooks, link, bevel bar and font and leaves packages"
+
+[[ $(bar_id) == omarchy.bar ]] || fail "uninstall left the bar engine on $(bar_id)"
+grep -qx memphis.bar "$STUB_STATE/bar-reset.plugins" || fail "uninstall removed memphis.bar before the bar reset"
+ok "uninstall resets the bar engine to omarchy.bar before it removes memphis.bar"
+
+# ------------------------------------------------------------ custom bar
+
+fresh_home
+set_bar_id local.neon-bar
+cp "$SHELL_JSON" "$TMP/shell.seed"
+bash "$REPO/install.sh" --no-packages >"$TMP/out" 2>&1
+[[ -f $PLUGIN/manifest.json ]] || fail "install with a custom bar did not build memphis.bar"
+cmp "$TMP/shell.seed" "$SHELL_JSON" || fail "install changed shell.json with a custom bar"
+[[ -z $(live_calls) ]] || fail "install with a custom bar ran live commands: $(live_calls)"
+grep -q 'the bar uses local.neon-bar' "$TMP/out" || fail "install did not warn about the custom bar"
+grep -q 'omarchy bar use memphis.bar' "$TMP/out" || fail "install did not print the bar command"
+ok "install keeps a custom bar engine, warns and prints the command"
+
+set_theme jade-horse
+bash "$REPO/uninstall.sh" >/dev/null
+cmp "$TMP/shell.seed" "$SHELL_JSON" || fail "uninstall changed shell.json with a custom bar"
+[[ -z $(live_calls) ]] || fail "uninstall with a custom bar ran live commands: $(live_calls)"
+[[ ! -e $PLUGIN ]] || fail "uninstall left memphis.bar with a custom bar"
+ok "uninstall keeps a custom bar engine and removes memphis.bar"
+
+fresh_home
+set_bar_id omarchy.bar
+bash "$REPO/install.sh" --no-packages >/dev/null
+[[ $(bar_id) == memphis.bar ]] || fail "install did not switch an explicit omarchy.bar: $(bar_id)"
+ok "install switches an explicit omarchy.bar id to memphis.bar"
+
+# A failing omarchy, first on PATH, for the bar commands only.
+mkdir -p "$TMP/failbin"
+cat >"$TMP/failbin/omarchy" <<'STUB'
+#!/bin/bash
+printf 'omarchy %s\n' "$*" >>"$STUB_STATE/calls.log"
+exit 1
+STUB
+chmod 755 "$TMP/failbin/omarchy"
+
+set_theme jade-horse
+PATH="$TMP/failbin:$PATH" bash "$REPO/uninstall.sh" >"$TMP/out" 2>&1 || fail "uninstall failed when the bar reset failed"
+[[ -f $PLUGIN/manifest.json ]] || fail "uninstall removed memphis.bar although the bar reset failed"
+grep -q "Run 'omarchy bar reset'" "$TMP/out" || fail "uninstall did not tell the user to reset the bar"
+ok "uninstall keeps memphis.bar when omarchy bar reset fails"
+
+fresh_home
+PATH="$TMP/failbin:$PATH" bash "$REPO/install.sh" --no-packages >"$TMP/out" 2>&1 || fail "install failed when the bar switch failed"
+[[ -f $PLUGIN/manifest.json && -L $LINK ]] || fail "a failed bar switch undid the install"
+grep -q 'omarchy bar use failed' "$TMP/out" || fail "install did not warn about the failed bar switch"
+ok "install warns and finishes when omarchy bar use fails"
 
 # ------------------------------------------------------------ old theme dir
 
@@ -201,12 +274,14 @@ ok "install moves an old theme dir out of themes/ to memphis-theme.old.<timestam
 fresh_home
 XDG_CONFIG_HOME="$TMP/xdg" bash "$REPO/install.sh" --no-packages >/dev/null
 [[ -L $LINK && $(readlink -f "$LINK") == "$REPO" ]] || fail "install with XDG_CONFIG_HOME did not link under \$HOME/.config"
+[[ $(bar_id) == memphis.bar ]] || fail "install with XDG_CONFIG_HOME did not switch the bar under \$HOME/.config"
 [[ -f $CONFIG/omarchy/hooks/theme-set.d/memphis ]] || fail "install with XDG_CONFIG_HOME did not put the hooks under \$HOME/.config"
 [[ -f $PLUGIN/manifest.json ]] || fail "install with XDG_CONFIG_HOME did not build the bar under \$HOME/.config"
 [[ ! -e $TMP/xdg ]] || fail "install wrote under XDG_CONFIG_HOME: $(find "$TMP/xdg")"
 XDG_CONFIG_HOME="$TMP/xdg" bash "$REPO/uninstall.sh" >/dev/null
 [[ ! -e $LINK && ! -e $PLUGIN && ! -e $CONFIG/omarchy/hooks/theme-set.d/memphis ]] ||
   fail "uninstall with XDG_CONFIG_HOME left files under \$HOME/.config"
+[[ $(bar_id) == omarchy.bar ]] || fail "uninstall with XDG_CONFIG_HOME did not reset the bar"
 ok "install and uninstall use \$HOME/.config when XDG_CONFIG_HOME is elsewhere"
 
 # ------------------------------------------------------------ build.sh call
@@ -225,7 +300,8 @@ echo '{"id": "someone.else"}' >"$PLUGIN/manifest.json"
 bash "$REPO/install.sh" --no-packages >"$TMP/out" 2>&1 || fail "install failed on a foreign memphis.bar"
 [[ $(jq -r .id "$PLUGIN/manifest.json") == someone.else ]] || fail "install replaced a foreign memphis.bar"
 grep -q 'bevel bar build failed' "$TMP/out" || fail "no warning for a foreign memphis.bar"
-ok "install leaves a foreign memphis.bar and warns"
+[[ -z $(live_calls) ]] || fail "install switched the bar to a foreign memphis.bar: $(live_calls)"
+ok "install leaves a foreign memphis.bar, warns and keeps the bar engine"
 
 # ------------------------------------------------------------ failed build
 
@@ -234,6 +310,7 @@ make_repo "$FAIL_REPO" fail
 fresh_home
 bash "$FAIL_REPO/install.sh" --no-packages >"$TMP/out" 2>&1 || fail "install failed when the build failed"
 grep -q 'bevel bar build failed' "$TMP/out" || fail "no warning for the failed build"
+[[ -z $(live_calls) ]] || fail "a failed build still switched the bar: $(live_calls)"
 [[ ! -e $PLUGIN ]] || fail "a failed build left memphis.bar"
 [[ -z $(find "$CONFIG/omarchy/plugins" -maxdepth 1 -name '.memphis-*' 2>/dev/null) ]] || fail "a failed build left a build dir"
 [[ -L $LINK && -f $CONFIG/omarchy/hooks/theme-set.d/memphis ]] || fail "a failed build stopped the install"

@@ -1,6 +1,8 @@
 #!/bin/bash
 # Installs the Memphis theme: packages, font, theme link, hooks and the bevel
-# bar. It applies nothing live. Run `omarchy theme set memphis` afterwards.
+# bar. The only live change is the bar engine switch to memphis.bar, which
+# looks the same as the stock bar under other themes. It does not apply the
+# theme. Run `omarchy theme set memphis` afterwards.
 
 set -euo pipefail
 
@@ -14,6 +16,9 @@ THEMES_DIR="$OMARCHY_CONFIG/themes"
 THEME_LINK="$THEMES_DIR/memphis"
 HOOKS_DIR="$OMARCHY_CONFIG/hooks"
 PLUGINS_DIR="$OMARCHY_CONFIG/plugins"
+SHELL_JSON="$OMARCHY_CONFIG/shell.json"
+BAR_ID="memphis.bar"
+DEFAULT_BAR_ID="omarchy.bar"
 FONT_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/fonts/memphis"
 
 DRY_RUN=0
@@ -23,7 +28,8 @@ usage() {
   cat <<USAGE
 Usage: ./install.sh [--dry-run] [--no-packages] [-h]
 
-Installs the Memphis theme without applying it.
+Installs the Memphis theme without applying it. When the bar is the stock
+omarchy.bar, it switches the bar engine to the bevel bar memphis.bar.
 
   --dry-run       Print each action and change nothing
   --no-packages   Skip the yay install of ${PACKAGES[*]}
@@ -126,11 +132,49 @@ install_hooks() {
 build_bar() {
   local build="$REPO/extras/bar-bevel/build.sh"
   if [[ ! -f $build ]]; then
-    warn "$build not found; the bar stays omarchy.bar"
+    warn "$build not found; the bar stays $DEFAULT_BAR_ID"
+    return 1
+  fi
+  say "Building the bevel bar into $PLUGINS_DIR/$BAR_ID"
+  if ! run bash "$build" "$PLUGINS_DIR"; then
+    warn "the bevel bar build failed; the bar stays $DEFAULT_BAR_ID"
+    return 1
+  fi
+}
+
+# Prints the bar id in shell.json. An unset id means the stock bar.
+current_bar_id() {
+  [[ -s $SHELL_JSON ]] || { echo "$DEFAULT_BAR_ID"; return 0; }
+  jq -r --arg default "$DEFAULT_BAR_ID" '.bar.id // $default' "$SHELL_JSON"
+}
+
+# The theme hook does not switch the bar engine, because a switch during
+# `omarchy theme set` races the theme apply and breaks the new bar. The bevel
+# lines draw only under a theme that sets bar.bevel-light and bar.bevel-dark,
+# so memphis.bar stays the engine under every theme.
+use_bevel_bar() {
+  local bar_id
+  if ! bar_id=$(current_bar_id); then
+    warn "cannot read $SHELL_JSON; to use the bevel bar, run: omarchy bar use $BAR_ID"
     return
   fi
-  say "Building the bevel bar into $PLUGINS_DIR/memphis.bar"
-  run bash "$build" "$PLUGINS_DIR" || warn "the bevel bar build failed; Memphis keeps omarchy.bar"
+  case "$bar_id" in
+    "$BAR_ID")
+      say "The bar already uses $BAR_ID"
+      ;;
+    "$DEFAULT_BAR_ID")
+      if ! command -v omarchy >/dev/null 2>&1; then
+        warn "omarchy not found; to use the bevel bar, run: omarchy bar use $BAR_ID"
+        return
+      fi
+      say "Switching the bar from $DEFAULT_BAR_ID to $BAR_ID (the shell reloads the bar)"
+      run omarchy bar use "$BAR_ID" ||
+        warn "omarchy bar use failed; to use the bevel bar, run: omarchy bar use $BAR_ID"
+      ;;
+    *)
+      warn "the bar uses $bar_id, so it stays. To use the bevel bar, run: omarchy bar use $BAR_ID"
+      ;;
+  esac
 }
 
 if ((DRY_RUN)); then say "Dry run: nothing changes"; fi
@@ -138,7 +182,7 @@ install_packages
 install_font
 link_theme
 install_hooks
-build_bar
+if build_bar; then use_bevel_bar; fi
 
 echo
 if ((DRY_RUN)); then
