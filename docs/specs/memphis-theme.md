@@ -9,6 +9,7 @@ Matias wants Omarchy to look like Windows 98. A plain Omarchy theme controls onl
 ## Goal
 
 - One public repo, `matiaslapolla/omarchy-memphis-theme`, gives the full look with one `./install.sh` and one `omarchy theme set memphis`.
+- The repo has three Variants: `memphis` (light), `memphis-gray` (medium gray) and `memphis-dark`. Each one is a separate Omarchy theme.
 - `omarchy theme install <url>` alone gives a colors-only version.
 - When the user switches to another theme, the Theme hook reverts every change that is outside the theme.
 - The Installer does not apply the theme. It does not reload Hyprland or change gsettings. Its only live change is one bar reload, when it makes the Bevel bar the Bar engine.
@@ -55,6 +56,24 @@ Win98 "Windows Standard" values (98.css, Chicago95, Wine `syscolor.c`):
 - `preview.png`, `preview-unlock.png` and `unlock.png`: generated mock images.
 - `fonts/W95FA.otf` with `fonts/OFL.txt` (OFL-1.1, by Alina Sava).
 
+### Variants (`variants/`)
+
+Omarchy has no light and dark modes inside one theme. Each Variant is a separate theme dir.
+
+| Variant | Mode | Terminal | Bar and popups | Desktop | GTK theme |
+|---|---|---|---|---|---|
+| `memphis` | light | `#E8E8E8`, black text | `#C0C0C0`, black text | teal `#008080` | Chicago95 |
+| `memphis-gray` | light | `#B4B4B4`, black text | `#A8A8A8`, black text | teal `#008080` | Chicago95 |
+| `memphis-dark` | dark | `#262626`, `#D8D8D8` text | `#3A3A3A`, `#E0E0E0` text | dark teal `#004040` | Omarchy's Adwaita-dark |
+
+- The repo root is `memphis`. `variants/memphis-gray/` and `variants/memphis-dark/` hold the other two. Each one is a full theme dir with real files, because `omarchy-theme-set` copies a theme with `cp -r`, which keeps a relative symlink and breaks it.
+- Each Variant has its own `colors.toml`, `shell.toml`, `hyprland.lua`, `icons.theme`, `backgrounds/`, `preview.png`, `preview-unlock.png` and `unlock.png`.
+- A Variant `hyprland.lua` is the root file with other border colors. `tests/variants.sh` checks that the other lines are the same.
+- Every terminal color keeps a 4.2:1 contrast or more on its `background`. `tests/contrast.sh` checks it.
+- `memphis-dark` keeps the Win98 cursor, font, icons, bevel and bottom bar. It does not set a GTK theme, because Chicago95 has no dark version.
+- The selected menu row is lighter than the menu in the light Variants and darker in `memphis-dark`, so the row subtitle (menu text at 52%) stays readable.
+- `extras/assets/gen-images.sh` generates the images of all three Variants.
+
 ### Bevel bar (`extras/bar-bevel/build.sh`)
 
 - `build.sh <plugins-dir>` copies the stock `$OMARCHY_PATH/shell/plugins/bar` into `<plugins-dir>/memphis.bar`. It sets the manifest id to `memphis.bar` in the same way as `omarchy-plugin-clone`.
@@ -66,13 +85,16 @@ Win98 "Windows Standard" values (98.css, Chicago95, Wine `syscolor.c`):
 
 ### Theme hook (`extras/hooks/theme-set`)
 
-The hook gets the Theme slug as `$1`.
+The hook gets the Theme slug as `$1`. A Memphis slug is `memphis`, `memphis-gray` or `memphis-dark`.
 
-For `memphis`:
+For a Memphis slug:
 1. If Saved state does not exist, write it: `cursor-theme`, `cursor-size`, `font-name` and `.bar.position`.
-2. Set gsettings `gtk-theme Chicago95`, `cursor-theme Chicago95_Cursor_Black` and `font-name "W95FA 11"`. Run `hyprctl setcursor`.
-3. Add `@import` of the Chicago95 `gtk-4.0/gtk.css` to `~/.config/gtk-4.0/gtk.css`, between marker comments.
-4. Set the bar position to `bottom`.
+2. Set gsettings `cursor-theme Chicago95_Cursor_Black` and `font-name "W95FA 11"`. Run `hyprctl setcursor`.
+3. For `memphis` and `memphis-gray`, set gsettings `gtk-theme Chicago95`, and add `@import` of the Chicago95 `gtk-4.0/gtk.css` to `~/.config/gtk-4.0/gtk.css`, between marker comments.
+4. For `memphis-dark`, remove the marked `@import` block. Omarchy has set `Adwaita-dark` already.
+5. Set the bar position to `bottom`.
+
+A switch between two Memphis slugs keeps the first Saved state.
 
 For any other slug, if Saved state exists:
 1. Restore each saved value. Remove the marked `@import` block.
@@ -82,22 +104,22 @@ The hook does not run `omarchy bar use` or `omarchy bar reset`. It ignores a `ba
 
 Omarchy resets `gtk-theme` itself on each switch.
 
-`extras/hooks/post-boot` sets the cursor again when the theme is `memphis`, because `~/.config/hypr/cursor.lua` resets it at login.
+`extras/hooks/post-boot` sets the cursor again when the theme is a Memphis slug, because `~/.config/hypr/cursor.lua` resets it at login.
 
 `extras/hooks/post-update` runs `build.sh` again, so the Bevel bar follows the upstream `Bar.qml` after `omarchy update`. If the build fails, it removes `memphis.bar`. If `memphis.bar` was the Bar engine, it runs `omarchy bar reset` first.
 
 ### Installer (`install.sh`, `uninstall.sh`)
 
-- `install.sh` installs `chicago95-gtk-theme-git`, `chicago95-icon-theme-git` and `xcursor-chicago95-git` with `yay`. It copies the font to `~/.local/share/fonts`, runs `fc-cache` and links the repo to `~/.config/omarchy/themes/memphis`. It copies the three hooks into the `.d` hook dirs and builds the Bevel bar.
+- `install.sh` installs `chicago95-gtk-theme-git`, `chicago95-icon-theme-git` and `xcursor-chicago95-git` with `yay`. It copies the font to `~/.local/share/fonts`, runs `fc-cache` and links the repo to `~/.config/omarchy/themes/memphis`. It links `variants/memphis-gray` and `variants/memphis-dark` to `themes/memphis-gray` and `themes/memphis-dark`. It copies the three hooks into the `.d` hook dirs and builds the Bevel bar.
 - After a successful build, the Installer sets the Bar engine:
   - If `.bar.id` is unset or `omarchy.bar`, it runs `omarchy bar use memphis.bar` and prints this step. The shell reloads the bar.
   - If `.bar.id` is `memphis.bar`, it does nothing.
   - If `.bar.id` names another bar, it keeps that bar. It prints a warning and the command `omarchy bar use memphis.bar`.
 - Saved state does not record the Bar engine.
-- If the theme dir exists and is not our link, it moves it to `~/.config/omarchy/memphis-theme.old.<timestamp>`, outside `themes/`, so `omarchy-theme-list` does not show it.
+- If a theme dir exists and is not our link, it moves it to `~/.config/omarchy/memphis-theme.old.<timestamp>`, outside `themes/`, so `omarchy-theme-list` does not show it.
 - `--no-packages` skips `yay`. `--dry-run` prints each action and changes nothing.
 - At the end it prints `omarchy theme set memphis`. It does not run it.
-- `uninstall.sh` removes the hooks, the link, the Bevel bar and the font. If Memphis is active, it tells the user to switch theme first.
+- `uninstall.sh` removes the hooks, the three links, the Bevel bar and the font. If a Memphis slug is active, it tells the user to switch theme first.
 - If `.bar.id` is `memphis.bar`, `uninstall.sh` runs `omarchy bar reset` before it removes the plugin. If the reset fails, it keeps the plugin and tells the user to run `omarchy bar reset`.
 - `--dry-run` in both scripts prints the `omarchy bar` command and does not run it.
 
@@ -111,3 +133,9 @@ Omarchy resets `gtk-theme` itself on each switch.
 - [ ] No file in the repo comes from Microsoft. The README has the trademark disclaimer.
 - [ ] No step during the build ran `omarchy theme set`, `omarchy restart`, `hyprctl reload` or a real `gsettings set`.
 - [ ] The repo is public at `github.com/matiaslapolla/omarchy-memphis-theme`.
+- [ ] `tests/render.sh` passes for the root, `variants/memphis-gray` and `variants/memphis-dark`.
+- [ ] `tests/contrast.sh` shows a 4.2:1 contrast or more for every terminal color of each Variant on its `background`.
+- [ ] `tests/variants.sh` shows that each Variant dir has every theme file and that its `hyprland.lua` differs from the root only in the border colors.
+- [ ] The hook test shows that `memphis-dark` sets the cursor, font and bar position, and leaves `gtk-theme` and `gtk-4.0/gtk.css` as Omarchy set them.
+- [ ] The hook test shows that `memphis` then `memphis-dark` then `jade-horse` restores the seed.
+- [ ] The install test shows the three theme links after an install and none after an uninstall. Uninstall refuses while any Memphis slug is current.
