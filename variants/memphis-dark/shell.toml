@@ -1,0 +1,182 @@
+# Memphis Dark shell surfaces. This file replaces the shell.toml that Omarchy
+# generates from default/themed/shell.toml.tpl, so it keeps every section and
+# key of that template. Keep it in step with the root shell.toml;
+# tests/render.sh checks the keys.
+#
+# The surfaces are charcoal (#3A3A3A) with light text. The bevel keeps a
+# lighter top-left line and a near-black bottom-right line. The accent is the
+# light end of the Win98 title gradient, because navy does not show on dark.
+#
+# Bevel borders: the shell draws a gradient along the angle in screen space
+# (y down), so 45deg runs from the top-left corner to the bottom-right one.
+
+[bar]
+# Alpha companions (where present) range from 0 (invisible) to 1 (opaque).
+background       = "#3A3A3A"
+background-alpha = 1.0
+text             = "#E0E0E0"
+# Modules calling attention to themselves (recording, voxtype, alerts, updates)
+active           = "#4FA6E8"
+# Cross-axis size at font base-size 12. size-horizontal is the height of
+# top/bottom bars; size-vertical is the width of left/right bars. With
+# scale-with-font enabled, these grow/shrink with [font] base-size.
+scale-with-font  = true
+size-horizontal  = 26
+size-vertical    = 28
+# Custom keys read by the memphis.bar plugin (extras/bar-bevel). The stock
+# bar ignores them.
+bevel-light      = "#5C5C5C"
+bevel-dark       = "#121212"
+
+[hyprland]
+# Same gradients as hyprland_active_border in colors.toml and hyprland.lua.
+active-border            = "rgb(000080) rgb(1084D0) 0deg"
+active-border-foreground = "rgb(000080) rgb(1084D0) 0deg"
+
+[controls]
+# Border widths accept N, "Y X", "T X B", or "T R B L". Each *-border accepts
+# a solid color or a gradient such as "rgb(...) rgb(...) 45deg".
+
+# Normal: idle control chrome, a raised bevel.
+normal-color        = "#E0E0E0"
+normal-fill-alpha   = 0.04
+normal-border       = "rgb(5C5C5C) rgb(121212) 45deg"
+normal-border-width = 1
+normal-border-alpha = 1.0
+
+# Hover-cursor: mouse hover and the panel keyboard cursor.
+hover-cursor-color        = "#E0E0E0"
+hover-cursor-fill-alpha   = 0.08
+hover-cursor-border       = "#E0E0E0"
+hover-cursor-border-width = 1
+hover-cursor-border-alpha = 0.5
+
+# Focus: Qt activeFocus.
+focus-color        = "#4FA6E8"
+focus-fill-alpha   = 0.08
+focus-border       = "#4FA6E8"
+focus-border-width = 1
+focus-border-alpha = 1.0
+
+# Selected: persistent chosen/current state.
+selected-color        = "#4FA6E8"
+selected-fill-alpha   = 0.18
+selected-border       = "#4FA6E8"
+selected-border-width = 1
+selected-border-alpha = 1.0
+
+# Momentary fills. selection-color tints selected text in inputs.
+pressed-fill-alpha   = 0.22
+selection-color      = "#4FA6E8"
+selection-fill-alpha = 0.35
+
+[spacing]
+# `scale` multiplies shared margins, gaps, padding, controls, and panel
+# dimensions. Per-token overrides (in px) pin individual values; see the
+# stock template for the list.
+scale = 1.0
+scale-with-font = true
+
+[font]
+# base-size is left unset on purpose, so the shell default (12) or the
+# user's ~/.config/omarchy/shell.toml decides it.
+# base-size = 12
+
+[popups]
+# Shared by every bar flyout (dropdowns, OSD, popup cards).
+background       = "#3A3A3A"
+background-alpha = 1.0
+text             = "#E0E0E0"
+border           = "rgb(5C5C5C) rgb(121212) 45deg"
+border-alpha     = 1.0
+border-width     = 2
+
+[tooltip]
+background       = "#4A4A38"
+background-alpha = 1.0
+text             = "#FFFFE1"
+border           = "rgb(5C5C5C) rgb(121212) 45deg"
+border-alpha     = 1.0
+border-width     = 2
+
+[notifications]
+background       = "#3A3A3A"
+background-alpha = 1.0
+text             = "#E0E0E0"
+border           = "rgb(5C5C5C) rgb(121212) 45deg"
+border-alpha     = 1.0
+border-width     = 2
+countdown        = "#4FA6E8"
+
+[launcher]
+# scrim is the full-screen dim layer behind the card; background is the card.
+background                = "#3A3A3A"
+background-alpha          = 1.0
+text                      = "#E0E0E0"
+border                    = "rgb(5C5C5C) rgb(121212) 45deg"
+border-alpha              = 1.0
+border-width              = 2
+scrim                     = "#000000"
+scrim-alpha               = 0.5
+selected-background       = "#1E1E1E"
+selected-background-alpha = 1.0
+selected-text             = "#FFFFFF"
+selected-border           = "#4FA6E8"
+selected-border-alpha     = 1.0
+
+[menu]
+# Clipboard and emojis inherit these tokens. The selected row is darker than
+# the menu, because Menu.qml draws row subtitles in `text` at 52% opacity
+# even on the selected row, which is unreadable on a light or blue row.
+background                = "#3A3A3A"
+background-alpha          = 1.0
+text                      = "#E0E0E0"
+border                    = "rgb(5C5C5C) rgb(121212) 45deg"
+border-alpha              = 1.0
+border-width              = 2
+scrim                     = "#000000"
+scrim-alpha               = 0.5
+selected-background       = "#1E1E1E"
+selected-background-alpha = 1.0
+selected-text             = "#FFFFFF"
+selected-border           = "#4FA6E8"
+selected-border-alpha     = 1.0
+
+[polkit]
+background       = "#3A3A3A"
+background-alpha = 1.0
+text             = "#E0E0E0"
+text-error       = "#FF8080"
+border           = "rgb(5C5C5C) rgb(121212) 45deg"
+border-error     = "#FF8080"
+border-alpha     = 1.0
+border-width     = 2
+scrim            = "#000000"
+scrim-alpha      = 0.5
+# accent is the lock-icon glyph color + text-selection tint.
+accent           = "#4FA6E8"
+
+[lock]
+# background is the centered password card.
+background       = "#3A3A3A"
+background-alpha = 1.0
+text             = "#E0E0E0"
+placeholder      = "#8A8A8A"
+text-error       = "#FF8080"
+border           = "rgb(5C5C5C) rgb(121212) 45deg"
+border-active    = "hyprland.active-border"
+border-error     = "#FF8080"
+border-alpha     = 1.0
+border-width     = 2
+selection        = "#4FA6E8"
+selection-alpha  = 0.45
+
+[image-picker]
+# The picker has no card. It tints the unselected images and outlines its
+# text in the colors.toml background (#262626), and its delete dialog uses
+# that same charcoal as background, so the text stays light.
+text                    = "#E0E0E0"
+selected-border         = "#4FA6E8"
+selected-border-alpha   = 1.0
+unselected-border       = "#000000"
+unselected-border-alpha = 0.28

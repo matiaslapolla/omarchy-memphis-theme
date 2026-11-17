@@ -3,7 +3,7 @@
 # key of that template. Keep it in step with the template after an update;
 # tests/render.sh checks it.
 #
-# colors.toml holds the Notepad terminal palette (white background, black
+# colors.toml holds the Notepad terminal palette (light gray background, black
 # text), and the shell reads its foreground/background roles from there. The
 # Win98 surfaces are button face, not white, so every surface below names its
 # colors explicitly instead of using the roles.

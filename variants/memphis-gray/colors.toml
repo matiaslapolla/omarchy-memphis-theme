@@ -1,0 +1,42 @@
+mode = "light"
+
+# Terminal palette "Notepad gray": black text on medium gray, navy selection.
+# The stock templates write ANSI 0 from background, ANSI 7 from foreground,
+# ANSI 8 from muted, ANSI 15 and the cursor from bright_foreground.
+
+accent = "#000080"
+# btop, tmux, Neovim visual mode and hermes draw text on `selection`, so it
+# stays light. The terminals use selection_background/foreground instead.
+selection = "#D4D4D4"
+selection_background = "#000080"
+selection_foreground = "#FFFFFF"
+muted = "#505050"
+
+background = "#B4B4B4"
+dark_background = "#ABABAB"
+darker_background = "#9C9C9C"
+lighter_background = "#A2A2A2"
+
+foreground = "#000000"
+dark_foreground = "#383838"
+light_foreground = "#202020"
+bright_foreground = "#000000"
+
+red = "#700000"
+yellow = "#5A4000"
+orange = "#663800"
+green = "#005000"
+cyan = "#004E4E"
+blue = "#000080"
+magenta = "#700070"
+brown = "#5A3000"
+
+bright_red = "#8A0000"
+bright_yellow = "#5E4600"
+bright_green = "#005600"
+bright_cyan = "#005454"
+bright_blue = "#0000A8"
+bright_magenta = "#7A007A"
+
+hyprland_active_border = "rgb(000080) rgb(1084D0) 0deg"
+hyprland_inactive_border = "rgb(808080) rgb(B5B5B5) 0deg"
