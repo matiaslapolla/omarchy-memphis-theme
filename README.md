@@ -27,6 +27,7 @@ What `install.sh` does:
 1. Installs `chicago95-gtk-theme-git`, `chicago95-icon-theme-git` and `xcursor-chicago95-git` with `yay`. Skip this step with `--no-packages`.
 2. Copies the W95FA font to `~/.local/share/fonts/memphis/`.
 3. Links this repo to `~/.config/omarchy/themes/memphis`. A link keeps `hyprland.lua`, which Omarchy drops from a theme that was cloned with `omarchy theme install`.
+   If `themes/memphis` already exists and is not this link, the installer moves it to `~/.config/omarchy/memphis-theme.old.<timestamp>`.
 4. Copies three hooks to `~/.config/omarchy/hooks/{theme-set,post-boot,post-update}.d/memphis`.
 5. Builds the bevel bar `memphis.bar` in `~/.config/omarchy/plugins/`. It is a copy of the stock bar with a 1 px light and dark edge.
 

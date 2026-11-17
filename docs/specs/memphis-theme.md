@@ -85,7 +85,7 @@ Omarchy resets `gtk-theme` itself on each switch.
 ### Installer (`install.sh`, `uninstall.sh`)
 
 - `install.sh` installs `chicago95-gtk-theme-git`, `chicago95-icon-theme-git` and `xcursor-chicago95-git` with `yay`. It copies the font to `~/.local/share/fonts`, runs `fc-cache` and links the repo to `~/.config/omarchy/themes/memphis`. It copies the three hooks into the `.d` hook dirs and builds the Bevel bar.
-- If the theme dir exists and is not our link, it moves it to `memphis.bak.<timestamp>`.
+- If the theme dir exists and is not our link, it moves it to `~/.config/omarchy/memphis-theme.old.<timestamp>`, outside `themes/`, so `omarchy-theme-list` does not show it.
 - `--no-packages` skips `yay`. `--dry-run` prints each action and changes nothing.
 - At the end it prints `omarchy theme set memphis`. It does not run it.
 - `uninstall.sh` removes the hooks, the link, the Bevel bar and the font. If Memphis is active, it tells the user to switch theme first.

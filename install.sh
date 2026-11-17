@@ -8,11 +8,12 @@ REPO="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 PACKAGES=(chicago95-gtk-theme-git chicago95-icon-theme-git xcursor-chicago95-git)
 HOOK_EVENTS=(theme-set post-boot post-update)
 
-CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
-THEMES_DIR="$CONFIG_HOME/omarchy/themes"
+# Omarchy reads its config from $HOME/.config and ignores XDG_CONFIG_HOME.
+OMARCHY_CONFIG="$HOME/.config/omarchy"
+THEMES_DIR="$OMARCHY_CONFIG/themes"
 THEME_LINK="$THEMES_DIR/memphis"
-HOOKS_DIR="$CONFIG_HOME/omarchy/hooks"
-PLUGINS_DIR="$CONFIG_HOME/omarchy/plugins"
+HOOKS_DIR="$OMARCHY_CONFIG/hooks"
+PLUGINS_DIR="$OMARCHY_CONFIG/plugins"
 FONT_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/fonts/memphis"
 
 DRY_RUN=0
@@ -52,7 +53,6 @@ done
 say() { printf '==> %s\n' "$*"; }
 warn() { printf 'install.sh: %s\n' "$*" >&2; }
 
-# Runs a command, or prints it under --dry-run.
 run() {
   if ((DRY_RUN)); then
     printf '[dry-run]'
@@ -100,11 +100,12 @@ link_theme() {
     return
   fi
   run mkdir -p "$THEMES_DIR"
+  # omarchy-theme-list shows every entry in themes/, so the old dir goes outside it.
   if [[ -e $THEME_LINK || -L $THEME_LINK ]]; then
-    local backup
-    backup="$THEME_LINK.bak.$(date +%Y%m%d%H%M%S)"
-    say "Moving the existing $THEME_LINK to $backup"
-    run mv -- "$THEME_LINK" "$backup"
+    local old_dir
+    old_dir="$OMARCHY_CONFIG/memphis-theme.old.$(date +%Y%m%d%H%M%S)"
+    say "Moving the old theme dir $THEME_LINK to $old_dir"
+    run mv -- "$THEME_LINK" "$old_dir"
   fi
   say "Linking $REPO to $THEME_LINK"
   run ln -s -- "$REPO" "$THEME_LINK"
@@ -120,39 +121,16 @@ install_hooks() {
   done
 }
 
-# Builds in a dot dir beside the target, which the shell's plugin scan skips,
-# so a failed build never touches a working memphis.bar.
+# build.sh swaps the plugin in atomically and refuses a memphis.bar that is
+# not its own build.
 build_bar() {
-  local build="$REPO/extras/bar-bevel/build.sh" target="$PLUGINS_DIR/memphis.bar"
+  local build="$REPO/extras/bar-bevel/build.sh"
   if [[ ! -f $build ]]; then
     warn "$build not found; the bar stays omarchy.bar"
     return
   fi
-  say "Building the bevel bar into $target"
-  if ((DRY_RUN)); then
-    run bash "$build" "$PLUGINS_DIR"
-    return
-  fi
-  if [[ -e $target ]] && [[ $(jq -r '.id // ""' "$target/manifest.json" 2>/dev/null) != "memphis.bar" ]]; then
-    warn "$target is not the Memphis bevel bar; leaving it and skipping the build"
-    return
-  fi
-  mkdir -p "$PLUGINS_DIR"
-  local stage
-  stage=$(mktemp -d "$PLUGINS_DIR/.memphis-build.XXXXXX")
-  if bash "$build" "$stage" && [[ -f $stage/memphis.bar/manifest.json ]]; then
-    if [[ -e $target ]]; then
-      mv --exchange "$stage/memphis.bar" "$target" 2>/dev/null || {
-        rm -rf "$target"
-        mv "$stage/memphis.bar" "$target"
-      }
-    else
-      mv "$stage/memphis.bar" "$target"
-    fi
-  else
-    warn "the bevel bar build failed; Memphis keeps omarchy.bar"
-  fi
-  rm -rf "$stage"
+  say "Building the bevel bar into $PLUGINS_DIR/memphis.bar"
+  run bash "$build" "$PLUGINS_DIR" || warn "the bevel bar build failed; Memphis keeps omarchy.bar"
 }
 
 if ((DRY_RUN)); then say "Dry run: nothing changes"; fi

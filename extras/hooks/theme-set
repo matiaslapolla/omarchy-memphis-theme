@@ -1,8 +1,8 @@
 #!/bin/bash
 # Memphis theme hook. Omarchy runs it after each theme switch with the theme
 # slug as $1. On memphis it saves the user's values once and applies the
-# Win98 GTK theme, cursor, UI font, bevel bar and bottom bar position. On any
-# other slug it restores the saved values and deletes the saved state.
+# Chicago95 GTK theme, cursor, UI font, bevel bar and bottom bar position. On
+# any other slug it restores the saved values and deletes the saved state.
 
 set -euo pipefail
 
@@ -16,13 +16,18 @@ FONT_FAMILY_FALLBACK="W95FA"
 FONT_SIZE="11"
 BAR_ID="memphis.bar"
 BAR_POSITION="bottom"
+DEFAULT_BAR_ID="omarchy.bar"
+DEFAULT_BAR_POSITION="top"
 
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/memphis"
 SAVED="$STATE_DIR/saved.env"
-CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
-GTK4_CSS="$CONFIG_HOME/gtk-4.0/gtk.css"
-SHELL_JSON="$CONFIG_HOME/omarchy/shell.json"
-PLUGINS_DIR="$CONFIG_HOME/omarchy/plugins"
+LOCK="$STATE_DIR/theme-set.lock"
+# GTK and omarchy-theme-set-glass honour XDG_CONFIG_HOME for gtk.css. Omarchy
+# itself reads only $HOME/.config.
+GTK4_CSS="${XDG_CONFIG_HOME:-$HOME/.config}/gtk-4.0/gtk.css"
+SHELL_JSON="$HOME/.config/omarchy/shell.json"
+PLUGINS_DIR="$HOME/.config/omarchy/plugins"
+THEME_NAME_FILE="$HOME/.local/state/omarchy/current/theme.name"
 FONT_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/fonts/memphis"
 THEME_DIRS="${MEMPHIS_THEME_DIRS:-$HOME/.local/share/themes:$HOME/.themes:/usr/share/themes}"
 ICON_DIRS="${MEMPHIS_ICON_DIRS:-$HOME/.local/share/icons:$HOME/.icons:/usr/share/icons}"
@@ -68,12 +73,12 @@ gvariant_int() {
 current_bar_id() {
   local file="$SHELL_JSON"
   [[ -s $file ]] || file="${OMARCHY_PATH:-/usr/share/omarchy}/config/omarchy/shell.json"
-  [[ -s $file ]] || { echo "omarchy.bar"; return; }
-  jq -r '.bar.id // "omarchy.bar"' "$file" 2>/dev/null || echo "omarchy.bar"
+  [[ -s $file ]] || { echo "$DEFAULT_BAR_ID"; return; }
+  jq -r --arg default "$DEFAULT_BAR_ID" '.bar.id // $default' "$file" 2>/dev/null || echo "$DEFAULT_BAR_ID"
 }
 
 current_bar_position() {
-  omarchy bar position 2>/dev/null || echo "top"
+  omarchy bar position 2>/dev/null || echo "$DEFAULT_BAR_POSITION"
 }
 
 font_family() {
@@ -94,40 +99,56 @@ font_family() {
 # Values must be one line. Bar ids and positions come from a file the user
 # edits, so they are checked before they reach a command.
 valid_line() { [[ $1 != *$'\n'* ]]; }
-valid_bar_id() { [[ $1 =~ ^[A-Za-z0-9._-]+$ ]]; }
-valid_position() { [[ $1 =~ ^(top|bottom|left|right)$ ]]; }
 
+# Prints the value of a bar_id or bar_position key, or its default when the
+# value is not safe to pass to omarchy.
+sane_bar_value() {
+  local key="$1" value="$2"
+  case "$key" in
+    bar_id) [[ $value =~ ^[A-Za-z0-9._-]+$ ]] || value="$DEFAULT_BAR_ID" ;;
+    bar_position) [[ $value =~ ^(top|bottom|left|right)$ ]] || value="$DEFAULT_BAR_POSITION" ;;
+  esac
+  printf '%s\n' "$value"
+}
+
+# True when gtk.css holds nothing outside the Memphis block.
+gtk4_css_only_ours() {
+  [[ -z $(sed "/^$(sed_regex "$MARK_BEGIN")\$/,/^$(sed_regex "$MARK_END")\$/d" "$GTK4_CSS") ]]
+}
+
+# A key whose current value is the Memphis value is left out: Memphis is
+# already applied, and the user's own value is lost. restore() skips it.
 save_state() {
   [[ ! -e $SAVED ]] || return 0
 
-  local cursor_theme cursor_size font_name bar_id bar_position gtk4_existed=0
+  local cursor_theme cursor_size font_name bar_id bar_position gtk4_existed=0 family
   cursor_theme=$(gs_get cursor-theme || true)
   cursor_size=$(gs_get cursor-size || true)
   font_name=$(gs_get font-name || true)
-  bar_id=$(current_bar_id)
-  bar_position=$(current_bar_position)
-  [[ -e $GTK4_CSS ]] && gtk4_existed=1
+  bar_id=$(sane_bar_value bar_id "$(current_bar_id)")
+  bar_position=$(sane_bar_value bar_position "$(current_bar_position)")
+  family=$(font_family || echo "$FONT_FAMILY_FALLBACK")
+  if [[ -e $GTK4_CSS ]] && ! gtk4_css_only_ours; then gtk4_existed=1; fi
 
-  # A lost saved state while Memphis is active must not save Memphis itself.
-  [[ $bar_id != "$BAR_ID" ]] || bar_id="omarchy.bar"
+  [[ $(gvariant_string "$cursor_theme") != "$CURSOR_THEME" ]] || cursor_theme=""
+  case "$(gvariant_string "$font_name")" in
+    "$family $FONT_SIZE" | "$FONT_FAMILY_FALLBACK $FONT_SIZE") font_name="" ;;
+  esac
+  # memphis.bar is never the user's own bar, so the stock bar stands in for it.
+  [[ $bar_id != "$BAR_ID" ]] || bar_id="$DEFAULT_BAR_ID"
+  [[ $bar_position != "$BAR_POSITION" ]] || bar_position=""
 
-  valid_bar_id "$bar_id" || bar_id="omarchy.bar"
-  valid_position "$bar_position" || bar_position="top"
   local value
   for value in "$cursor_theme" "$cursor_size" "$font_name"; do
     valid_line "$value" || { warn "unexpected multi-line gsettings value; not saving state"; return 1; }
   done
 
   mkdir -p "$STATE_DIR"
-  local tmp="$SAVED.tmp.$$"
-  {
-    printf 'cursor_theme=%s\n' "$cursor_theme"
-    printf 'cursor_size=%s\n' "$cursor_size"
-    printf 'font_name=%s\n' "$font_name"
-    printf 'bar_id=%s\n' "$bar_id"
-    printf 'bar_position=%s\n' "$bar_position"
-    printf 'gtk4_css_existed=%s\n' "$gtk4_existed"
-  } >"$tmp"
+  local tmp="$SAVED.tmp.$$" key
+  for key in cursor_theme cursor_size font_name bar_id bar_position; do
+    [[ -z ${!key} ]] || printf '%s=%s\n' "$key" "${!key}"
+  done >"$tmp"
+  printf 'gtk4_css_existed=%s\n' "$gtk4_existed" >>"$tmp"
   mv "$tmp" "$SAVED"
 }
 
@@ -273,18 +294,23 @@ restore() {
   fi
 
   if have omarchy; then
-    local bar_id="${STATE[bar_id]:-omarchy.bar}" bar_position="${STATE[bar_position]:-top}"
-    valid_bar_id "$bar_id" || bar_id="omarchy.bar"
-    valid_position "$bar_position" || bar_position="top"
-    if ! use_bar "$bar_id"; then
-      if [[ $bar_id != "omarchy.bar" ]] && use_bar "omarchy.bar"; then
-        warn "saved bar $bar_id is gone; switched to omarchy.bar"
-      else
-        warn "could not switch the bar back to $bar_id"
-        ok=0
+    if [[ -n ${STATE[bar_id]:-} ]]; then
+      local bar_id
+      bar_id=$(sane_bar_value bar_id "${STATE[bar_id]}")
+      if ! use_bar "$bar_id"; then
+        if [[ $bar_id != "$DEFAULT_BAR_ID" ]] && use_bar "$DEFAULT_BAR_ID"; then
+          warn "saved bar $bar_id is gone; switched to $DEFAULT_BAR_ID"
+        else
+          warn "could not switch the bar back to $bar_id"
+          ok=0
+        fi
       fi
     fi
-    set_bar_position "$bar_position" || { warn "could not move the bar back to $bar_position"; ok=0; }
+    if [[ -n ${STATE[bar_position]:-} ]]; then
+      local bar_position
+      bar_position=$(sane_bar_value bar_position "${STATE[bar_position]}")
+      set_bar_position "$bar_position" || { warn "could not move the bar back to $bar_position"; ok=0; }
+    fi
   else
     warn "omarchy not found; cannot restore the bar"
     ok=0
@@ -292,11 +318,20 @@ restore() {
 
   if ((ok)); then
     rm -f "$SAVED"
-    rmdir "$STATE_DIR" 2>/dev/null || true
   else
     warn "kept $SAVED so the next theme switch retries the restore"
   fi
 }
+
+# Omarchy runs this hook for every switch, also for one that a newer switch
+# replaced while it waited. The lock runs one hook at a time, and theme.name
+# names the newest switch, so an older hook leaves the work to the newer one.
+mkdir -p "$STATE_DIR"
+exec {lock_fd}>"$LOCK"
+flock "$lock_fd"
+if [[ -f $THEME_NAME_FILE && $(<"$THEME_NAME_FILE") != "$SLUG" ]]; then
+  exit 0
+fi
 
 if [[ $SLUG == "memphis" ]]; then
   apply_memphis

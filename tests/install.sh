@@ -43,12 +43,22 @@ make_repo() {
     fail)
       printf '#!/bin/bash\necho "anchor not found" >&2\nexit 1\n' >"$repo/extras/bar-bevel/build.sh"
       ;;
+    record)
+      cat >"$repo/extras/bar-bevel/build.sh" <<'BUILD'
+#!/bin/bash
+set -euo pipefail
+printf '%s\n' "$1" >>"$STUB_STATE/build.args"
+mkdir -p "$1/memphis.bar"
+echo '{"id": "memphis.bar", "kinds": ["bar"]}' >"$1/memphis.bar/manifest.json"
+BUILD
+      ;;
     real)
       if [[ ! -f $repo/extras/bar-bevel/build.sh ]] ||
         [[ ! -d ${OMARCHY_PATH:-/usr/share/omarchy}/shell/plugins/bar ]]; then
         cat >"$repo/extras/bar-bevel/build.sh" <<'BUILD'
 #!/bin/bash
 set -euo pipefail
+if [[ -e $1/memphis.bar && $(jq -r .id "$1/memphis.bar/manifest.json") != memphis.bar ]]; then exit 1; fi
 mkdir -p "$1/memphis.bar"
 echo '{"id": "memphis.bar", "kinds": ["bar"]}' >"$1/memphis.bar/manifest.json"
 BUILD
@@ -112,16 +122,17 @@ cmp "$REPO/fonts/W95FA.otf" "$FONT_DIR/W95FA.otf" || fail "font not installed"
 [[ -f $FONT_DIR/OFL.txt ]] || fail "OFL.txt not installed"
 grep -qx "fc-cache -f $FONT_DIR" "$STUB_STATE/calls.log" || fail "fc-cache did not run on the font dir"
 [[ $(jq -r .id "$PLUGIN/manifest.json") == "memphis.bar" ]] || fail "memphis.bar not built"
-[[ -z $(find "$CONFIG/omarchy/plugins" -maxdepth 1 -name '.memphis-build.*') ]] || fail "install left a build dir"
+[[ -z $(find "$CONFIG/omarchy/plugins" -maxdepth 1 -name '.memphis-*') ]] || fail "install left a build dir"
 ! grep -q '^yay ' "$STUB_STATE/calls.log" || fail "--no-packages ran yay"
 ! grep -qE '^(omarchy|gsettings|hyprctl) ' "$STUB_STATE/calls.log" || fail "install ran a live command"
 [[ $out == *"omarchy theme set memphis"* ]] || fail "install did not print the final instruction"
 ok "install --no-packages links the theme, copies hooks and font, builds the bar"
 
 bash "$REPO/install.sh" --no-packages >/dev/null
-[[ -z $(find "$CONFIG/omarchy/themes" -maxdepth 1 -name 'memphis.bak.*') ]] || fail "a second install made a backup"
+[[ -z $(find "$CONFIG/omarchy" -maxdepth 2 -name 'memphis-theme.old.*') ]] ||
+  fail "a second install moved the theme link aside"
 [[ $(readlink -f "$LINK") == "$REPO" ]] || fail "a second install broke the link"
-ok "a second install keeps the link and makes no backup"
+ok "a second install keeps the link and moves nothing aside"
 
 before=$(snapshot)
 : >"$STUB_STATE/calls.log"
@@ -143,6 +154,9 @@ if bash "$REPO/uninstall.sh" >"$TMP/out" 2>&1; then fail "uninstall ran while me
 grep -q 'Switch to another theme first' "$TMP/out" || fail "uninstall refusal has no message"
 [[ $(snapshot) == "$before" ]] || fail "a refused uninstall changed HOME"
 ok "uninstall refuses while memphis is the current theme"
+
+! bash "$REPO/uninstall.sh" -h | grep -q -- '--no-packages' || fail "uninstall -h still lists --no-packages"
+ok "uninstall has no --no-packages option"
 
 set_theme jade-horse
 before=$(snapshot)
@@ -166,16 +180,52 @@ leftover=$(find "$HOME" -path "$HOME/.local/state" -prune -o \( -type f -o -type
 [[ -z $leftover ]] || fail "uninstall left files: $leftover"
 ok "uninstall removes hooks, link, bevel bar and font and leaves packages"
 
-# ------------------------------------------------------------ backup
+# ------------------------------------------------------------ old theme dir
 
+# omarchy-theme-list shows every entry in themes/, so the old dir goes outside it.
 fresh_home
 mkdir -p "$LINK"
 echo "user theme" >"$LINK/colors.toml"
 bash "$REPO/install.sh" --no-packages >/dev/null
-backups=("$CONFIG/omarchy/themes"/memphis.bak.*)
-[[ ${#backups[@]} == 1 && -f ${backups[0]}/colors.toml ]] || fail "the old theme dir was not backed up"
-[[ -L $LINK && $(readlink -f "$LINK") == "$REPO" ]] || fail "the link was not created after the backup"
-ok "install moves a theme dir that is not our link to memphis.bak.<timestamp>"
+old_dirs=("$CONFIG/omarchy"/memphis-theme.old.*)
+[[ -f ${old_dirs[0]}/colors.toml ]] || fail "the old theme dir was not moved to memphis-theme.old.<timestamp>"
+((${#old_dirs[@]} == 1)) || fail "install moved the old theme dir more than once"
+[[ -L $LINK && $(readlink -f "$LINK") == "$REPO" ]] || fail "the link was not created after the move"
+themes=$(find "$CONFIG/omarchy/themes" -mindepth 1 -maxdepth 1 -printf '%f\n')
+[[ $themes == memphis ]] || fail "themes/ holds more than the memphis link: $themes"
+ok "install moves an old theme dir out of themes/ to memphis-theme.old.<timestamp>"
+
+# ------------------------------------------------------------ XDG_CONFIG_HOME
+
+# Omarchy reads hooks, themes and plugins from $HOME/.config only.
+fresh_home
+XDG_CONFIG_HOME="$TMP/xdg" bash "$REPO/install.sh" --no-packages >/dev/null
+[[ -L $LINK && $(readlink -f "$LINK") == "$REPO" ]] || fail "install with XDG_CONFIG_HOME did not link under \$HOME/.config"
+[[ -f $CONFIG/omarchy/hooks/theme-set.d/memphis ]] || fail "install with XDG_CONFIG_HOME did not put the hooks under \$HOME/.config"
+[[ -f $PLUGIN/manifest.json ]] || fail "install with XDG_CONFIG_HOME did not build the bar under \$HOME/.config"
+[[ ! -e $TMP/xdg ]] || fail "install wrote under XDG_CONFIG_HOME: $(find "$TMP/xdg")"
+XDG_CONFIG_HOME="$TMP/xdg" bash "$REPO/uninstall.sh" >/dev/null
+[[ ! -e $LINK && ! -e $PLUGIN && ! -e $CONFIG/omarchy/hooks/theme-set.d/memphis ]] ||
+  fail "uninstall with XDG_CONFIG_HOME left files under \$HOME/.config"
+ok "install and uninstall use \$HOME/.config when XDG_CONFIG_HOME is elsewhere"
+
+# ------------------------------------------------------------ build.sh call
+
+RECORD_REPO="$TMP/repo-record"
+make_repo "$RECORD_REPO" record
+fresh_home
+bash "$RECORD_REPO/install.sh" --no-packages >/dev/null
+[[ $(cat "$STUB_STATE/build.args") == "$CONFIG/omarchy/plugins" ]] ||
+  fail "install did not call build.sh on the plugins dir: $(cat "$STUB_STATE/build.args")"
+ok "install builds the bar with build.sh on the plugins dir"
+
+fresh_home
+mkdir -p "$PLUGIN"
+echo '{"id": "someone.else"}' >"$PLUGIN/manifest.json"
+bash "$REPO/install.sh" --no-packages >"$TMP/out" 2>&1 || fail "install failed on a foreign memphis.bar"
+[[ $(jq -r .id "$PLUGIN/manifest.json") == someone.else ]] || fail "install replaced a foreign memphis.bar"
+grep -q 'bevel bar build failed' "$TMP/out" || fail "no warning for a foreign memphis.bar"
+ok "install leaves a foreign memphis.bar and warns"
 
 # ------------------------------------------------------------ failed build
 
@@ -185,7 +235,7 @@ fresh_home
 bash "$FAIL_REPO/install.sh" --no-packages >"$TMP/out" 2>&1 || fail "install failed when the build failed"
 grep -q 'bevel bar build failed' "$TMP/out" || fail "no warning for the failed build"
 [[ ! -e $PLUGIN ]] || fail "a failed build left memphis.bar"
-[[ -z $(find "$CONFIG/omarchy/plugins" -maxdepth 1 -name '.memphis-build.*') ]] || fail "a failed build left a build dir"
+[[ -z $(find "$CONFIG/omarchy/plugins" -maxdepth 1 -name '.memphis-*' 2>/dev/null) ]] || fail "a failed build left a build dir"
 [[ -L $LINK && -f $CONFIG/omarchy/hooks/theme-set.d/memphis ]] || fail "a failed build stopped the install"
 ok "a failed bar build warns and the install continues"
 

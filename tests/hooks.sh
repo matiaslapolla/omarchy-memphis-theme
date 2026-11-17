@@ -192,6 +192,84 @@ switch_to jade-horse Adwaita-dark
 assert_seed_restored
 ok "missing dependencies are skipped with a warning and restore still works"
 
+# ------------------------------------------------------------ superseded switch
+
+# Omarchy runs the hook for a batch even after a newer switch replaced it.
+seed
+mkdir -p "${THEME_NAME%/*}"
+echo tokyo-night >"$THEME_NAME"
+bash "$HOOKS/theme-set" memphis 2>>"$TMP/stderr.log"
+[[ ! -s $STUB_STATE/calls.log ]] || fail "a superseded memphis hook ran: $(cat "$STUB_STATE/calls.log")"
+[[ ! -e $SAVED ]] || fail "a superseded memphis hook wrote saved.env"
+cmp "$TMP/seed/gtk.css" "$GTK4_CSS" || fail "a superseded memphis hook changed gtk.css"
+ok "theme-set skips memphis when theme.name names a newer theme"
+
+switch_to memphis Adwaita
+cp "$SAVED" "$TMP/saved.memphis"
+: >"$STUB_STATE/calls.log"
+bash "$HOOKS/theme-set" jade-horse 2>>"$TMP/stderr.log"
+[[ ! -s $STUB_STATE/calls.log ]] || fail "a superseded restore ran: $(cat "$STUB_STATE/calls.log")"
+cmp "$TMP/saved.memphis" "$SAVED" || fail "a superseded restore changed saved.env"
+eq "$(gs cursor-theme)" "'Chicago95_Cursor_Black'" "cursor-theme after a superseded restore"
+grep -qxF '/* memphis:begin */' "$GTK4_CSS" || fail "a superseded restore removed the gtk.css block"
+switch_to jade-horse Adwaita-dark
+assert_seed_restored
+ok "theme-set skips the restore when theme.name is still memphis"
+
+seed
+bash "$HOOKS/theme-set" memphis 2>>"$TMP/stderr.log"
+eq "$(gs cursor-theme)" "'Chicago95_Cursor_Black'" "cursor-theme without theme.name"
+switch_to jade-horse Adwaita-dark
+assert_seed_restored
+ok "theme-set runs when theme.name is missing"
+
+# ------------------------------------------------------------ XDG_CONFIG_HOME
+
+# Omarchy reads its config from $HOME/.config whatever XDG_CONFIG_HOME says.
+seed
+XDG_CONFIG_HOME="$TMP/xdg" switch_to memphis Adwaita
+eq "$(jq -r '.bar.id' "$SHELL_JSON")" "memphis.bar" "bar id with XDG_CONFIG_HOME"
+XDG_CONFIG_HOME="$TMP/xdg" switch_to jade-horse Adwaita-dark
+eq "$(jq -r '.bar.id // "omarchy.bar"' "$SHELL_JSON")" "omarchy.bar" "bar id restored with XDG_CONFIG_HOME"
+[[ ! -e $TMP/xdg/omarchy ]] || fail "theme-set wrote Omarchy config under XDG_CONFIG_HOME"
+rm -rf "$TMP/xdg"
+ok "theme-set finds the bar under \$HOME/.config when XDG_CONFIG_HOME is elsewhere"
+
+# ------------------------------------------------------------ lost saved state
+
+# A lost saved.env while Memphis is applied must not save Memphis values.
+seed
+switch_to memphis Adwaita
+rm -f "$SAVED"
+switch_to memphis Adwaita
+for key in cursor_theme font_name bar_position; do
+  ! grep -q "^$key=" "$SAVED" || fail "saved.env kept the Memphis $key: $(cat "$SAVED")"
+done
+grep -qx 'bar_id=omarchy.bar' "$SAVED" || fail "saved.env does not name omarchy.bar: $(cat "$SAVED")"
+grep -qx 'gtk4_css_existed=1' "$SAVED" || fail "saved.env lost the user's gtk.css: $(cat "$SAVED")"
+: >"$STUB_STATE/calls.log"
+switch_to jade-horse Adwaita-dark
+if grep -E 'set org.gnome.desktop.interface (cursor-theme|font-name)|bar position' "$STUB_STATE/calls.log"; then
+  fail "the restore wrote Memphis values back"
+fi
+eq "$(gs cursor-theme)" "'Chicago95_Cursor_Black'" "cursor-theme after a lost saved state"
+eq "$(gs font-name)" "'W95FA 11'" "font-name after a lost saved state"
+eq "$(jq -r '.bar.position' "$SHELL_JSON")" "bottom" "bar position after a lost saved state"
+eq "$(jq -r '.bar.id // "omarchy.bar"' "$SHELL_JSON")" "omarchy.bar" "bar id after a lost saved state"
+cmp "$TMP/seed/gtk.css" "$GTK4_CSS" || fail "gtk.css differs from the seed after a lost saved state"
+[[ ! -e $SAVED ]] || fail "saved.env was not deleted"
+ok "a lost saved state does not save or restore Memphis values"
+
+seed
+rm -f "$GTK4_CSS"
+switch_to memphis Adwaita
+rm -f "$SAVED"
+switch_to memphis Adwaita
+grep -qx 'gtk4_css_existed=0' "$SAVED" || fail "a gtk.css with only our block counts as the user's: $(cat "$SAVED")"
+switch_to jade-horse Adwaita-dark
+[[ ! -e $GTK4_CSS ]] || fail "gtk.css with only our block was left behind"
+ok "a gtk.css that holds only the Memphis block does not count as the user's"
+
 # ------------------------------------------------------------ post-boot
 
 seed
@@ -218,14 +296,23 @@ cat >"$FAKE_REPO/extras/bar-bevel/build.sh" <<'BUILD'
 #!/bin/bash
 set -euo pipefail
 [[ ${FAKE_BUILD_FAIL:-0} == 0 ]] || exit 1
+printf '%s\n' "$1" >>"$STUB_STATE/build.args"
 mkdir -p "$1/memphis.bar"
 echo '{"id": "memphis.bar", "rebuilt": true}' >"$1/memphis.bar/manifest.json"
 BUILD
 
 bash "$HOOKS/post-update"
 eq "$(jq -r '.rebuilt' "$CONFIG/omarchy/plugins/memphis.bar/manifest.json")" "true" "rebuild"
-[[ -z $(find "$CONFIG/omarchy/plugins" -maxdepth 1 -name '.memphis-build.*') ]] || fail "post-update left a build dir"
-ok "post-update rebuilds an installed memphis.bar"
+eq "$(cat "$STUB_STATE/build.args")" "$CONFIG/omarchy/plugins" "build.sh argument"
+[[ -z $(find "$CONFIG/omarchy/plugins" -maxdepth 1 -name '.memphis-*') ]] || fail "post-update left a build dir"
+ok "post-update rebuilds memphis.bar with build.sh on the plugins dir"
+
+rm -f "$STUB_STATE/build.args"
+echo '{"id": "memphis.bar"}' >"$CONFIG/omarchy/plugins/memphis.bar/manifest.json"
+XDG_CONFIG_HOME="$TMP/xdg" bash "$HOOKS/post-update"
+eq "$(jq -r '.rebuilt' "$CONFIG/omarchy/plugins/memphis.bar/manifest.json")" "true" "rebuild with XDG_CONFIG_HOME"
+eq "$(cat "$STUB_STATE/build.args")" "$CONFIG/omarchy/plugins" "build.sh argument with XDG_CONFIG_HOME"
+ok "post-update uses \$HOME/.config when XDG_CONFIG_HOME is elsewhere"
 
 omarchy bar use memphis.bar >/dev/null
 : >"$STUB_STATE/calls.log"
@@ -236,7 +323,6 @@ eq "$(jq -r '.bar.id // "omarchy.bar"' "$SHELL_JSON")" "omarchy.bar" "bar after 
 grep -q '^omarchy bar reset$' "$STUB_STATE/calls.log" || fail "no omarchy bar reset after a failed build"
 grep -q '^notify-send ' "$STUB_STATE/calls.log" || fail "no notification after a failed build"
 grep -q 'build.sh failed' "$TMP/stderr.log" || fail "no warning after a failed build"
-[[ -z $(find "$CONFIG/omarchy/plugins" -maxdepth 1 -name '.memphis-build.*') ]] || fail "post-update left a build dir"
 ok "a failed rebuild removes memphis.bar, resets the bar and notifies"
 
 mkdir -p "$CONFIG/omarchy/plugins/memphis.bar"

@@ -6,11 +6,12 @@
 
 set -euo pipefail
 
-CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
-PLUGINS_DIR="$CONFIG_HOME/omarchy/plugins"
+# Omarchy reads its config from $HOME/.config and ignores XDG_CONFIG_HOME.
+OMARCHY_CONFIG="$HOME/.config/omarchy"
+PLUGINS_DIR="$OMARCHY_CONFIG/plugins"
 TARGET="$PLUGINS_DIR/memphis.bar"
-SHELL_JSON="$CONFIG_HOME/omarchy/shell.json"
-THEME_LINK="$CONFIG_HOME/omarchy/themes/memphis"
+SHELL_JSON="$OMARCHY_CONFIG/shell.json"
+THEME_LINK="$OMARCHY_CONFIG/themes/memphis"
 
 warn() { echo "memphis post-update: $*" >&2; }
 
@@ -20,9 +21,13 @@ notify() {
   fi
 }
 
+is_memphis_bar() {
+  [[ $(jq -r '.id // ""' "$1/manifest.json" 2>/dev/null) == "memphis.bar" ]]
+}
+
 drop_stale_bar() {
   local reason="$1"
-  if [[ $(jq -r '.id // ""' "$TARGET/manifest.json" 2>/dev/null) != "memphis.bar" ]]; then
+  if ! is_memphis_bar "$TARGET"; then
     warn "$reason; $TARGET is not ours, leaving it"
     return
   fi
@@ -43,17 +48,8 @@ if [[ -z $repo || ! -f $build ]]; then
   exit 0
 fi
 
-# Build beside the target in a dot dir, which the shell's plugin scan skips,
-# then swap it in, so the shell never sees a half-built plugin.
-stage=$(mktemp -d "$PLUGINS_DIR/.memphis-build.XXXXXX")
-trap 'rm -rf "$stage"' EXIT
-
-if ! bash "$build" "$stage" >&2 || [[ ! -f $stage/memphis.bar/manifest.json ]]; then
+# build.sh swaps the plugin in atomically, so the shell never sees a half-built
+# plugin, and it refuses a memphis.bar that is not its own build.
+if ! bash "$build" "$PLUGINS_DIR" >&2; then
   drop_stale_bar "build.sh failed"
-  exit 0
-fi
-
-if ! mv --exchange "$stage/memphis.bar" "$TARGET" 2>/dev/null; then
-  rm -rf "$TARGET"
-  mv "$stage/memphis.bar" "$TARGET"
 fi

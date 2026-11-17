@@ -59,16 +59,12 @@ fi
 # Same as omarchy-plugin-clone: built-in ids inside the plugin code stay as
 # stable IPC targets, and clonedFrom routes them to this manifest id.
 update_manifest() {
-  local target_dir="$1"
-  local source_id="$2"
-  local new_id="$3"
-  local display_name="$4"
-  local manifest="$target_dir/manifest.json"
+  local manifest="$1/manifest.json"
 
   jq \
-    --arg id "$new_id" \
-    --arg name "$display_name" \
-    --arg sourceId "$source_id" '
+    --arg id "$NEW_ID" \
+    --arg name "$DISPLAY_NAME" \
+    --arg sourceId "$SOURCE_ID" '
       .id = $id |
       .name = $name |
       if (.barWidget | type) == "object" then
@@ -124,7 +120,6 @@ find_anchor() {
   echo "$line"
 }
 
-# insert_snippet <bar-qml> <line>
 insert_snippet() {
   local bar_qml="$1"
   local line="$2"
@@ -154,7 +149,7 @@ trap cleanup EXIT
 
 cp -aL "$source_dir/." "$stage/"
 chmod 755 "$stage"
-update_manifest "$stage" "$SOURCE_ID" "$NEW_ID" "$DISPLAY_NAME"
+update_manifest "$stage"
 record_build "$stage"
 insert_snippet "$stage/Bar.qml" "$anchor_line"
 

@@ -9,27 +9,27 @@ REPO="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 PACKAGES=(chicago95-gtk-theme-git chicago95-icon-theme-git xcursor-chicago95-git)
 HOOK_EVENTS=(theme-set post-boot post-update)
 
-CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
-THEME_LINK="$CONFIG_HOME/omarchy/themes/memphis"
-HOOKS_DIR="$CONFIG_HOME/omarchy/hooks"
-PLUGIN="$CONFIG_HOME/omarchy/plugins/memphis.bar"
-SHELL_JSON="$CONFIG_HOME/omarchy/shell.json"
+# Omarchy reads its config from $HOME/.config and ignores XDG_CONFIG_HOME.
+OMARCHY_CONFIG="$HOME/.config/omarchy"
+THEME_LINK="$OMARCHY_CONFIG/themes/memphis"
+HOOKS_DIR="$OMARCHY_CONFIG/hooks"
+PLUGIN="$OMARCHY_CONFIG/plugins/memphis.bar"
+SHELL_JSON="$OMARCHY_CONFIG/shell.json"
 FONT_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/fonts/memphis"
 THEME_NAME_FILE="$HOME/.local/state/omarchy/current/theme.name"
-SAVED="${XDG_STATE_HOME:-$HOME/.local/state}/memphis/saved.env"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/memphis"
+SAVED="$STATE_DIR/saved.env"
 
 DRY_RUN=0
-NO_PACKAGES=0
 
 usage() {
   cat <<USAGE
-Usage: ./uninstall.sh [--dry-run] [--no-packages] [-h]
+Usage: ./uninstall.sh [--dry-run] [-h]
 
 Removes the Memphis hooks, theme link, bevel bar and font. Switch to another
 theme first.
 
   --dry-run       Print each action and change nothing
-  --no-packages   Do not print the package removal command
   -h, --help      Show this help
 USAGE
 }
@@ -37,7 +37,6 @@ USAGE
 while (($# > 0)); do
   case "$1" in
     --dry-run) DRY_RUN=1 ;;
-    --no-packages) NO_PACKAGES=1 ;;
     -h | --help)
       usage
       exit 0
@@ -112,12 +111,14 @@ fi
 
 if [[ -f $SAVED ]]; then
   warn "$SAVED still holds your values from before Memphis; it was kept"
+elif [[ -e $STATE_DIR/theme-set.lock ]]; then
+  say "Removing the theme hook lock $STATE_DIR/theme-set.lock"
+  run rm -f -- "$STATE_DIR/theme-set.lock"
+  run rmdir --ignore-fail-on-non-empty -- "$STATE_DIR"
 fi
 
 echo
 echo "Memphis is uninstalled."
-if ((!NO_PACKAGES)); then
-  echo "The Chicago95 packages stay installed. To remove them, run:"
-  echo
-  echo "  yay -R ${PACKAGES[*]}"
-fi
+echo "The Chicago95 packages stay installed. To remove them, run:"
+echo
+echo "  yay -R ${PACKAGES[*]}"
