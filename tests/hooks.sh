@@ -190,6 +190,15 @@ assert_seed_restored
 ok "memphis-gray then memphis-dark then jade-horse restores the seed"
 
 seed
+switch_to memphis Adwaita
+switch_to memphis-dark Adwaita-dark
+eq "$(gs gtk-theme)" "'Adwaita-dark'" "memphis-dark after memphis gtk-theme"
+cmp "$TMP/seed/gtk.css" "$GTK4_CSS" || fail "memphis-dark after memphis left the import in gtk.css"
+switch_to jade-horse Adwaita-dark
+assert_seed_restored
+ok "memphis then memphis-dark then jade-horse restores the seed"
+
+seed
 switch_to memphis-dark Adwaita-dark
 eq "$(gs gtk-theme)" "'Adwaita-dark'" "memphis-dark first gtk-theme"
 cmp "$TMP/seed/gtk.css" "$GTK4_CSS" || fail "memphis-dark changed gtk.css"

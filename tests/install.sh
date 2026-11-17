@@ -179,10 +179,12 @@ before=$(snapshot)
 if bash "$REPO/uninstall.sh" >"$TMP/out" 2>&1; then fail "uninstall ran while memphis is current"; fi
 grep -q 'Switch to another theme first' "$TMP/out" || fail "uninstall refusal has no message"
 [[ $(snapshot) == "$before" ]] || fail "a refused uninstall changed HOME"
-set_theme memphis-dark
-before=$(snapshot)
-if bash "$REPO/uninstall.sh" >"$TMP/out" 2>&1; then fail "uninstall ran while memphis-dark is current"; fi
-[[ $(snapshot) == "$before" ]] || fail "a refused uninstall changed HOME under memphis-dark"
+for slug in memphis-gray memphis-dark; do
+  set_theme "$slug"
+  before=$(snapshot)
+  if bash "$REPO/uninstall.sh" >"$TMP/out" 2>&1; then fail "uninstall ran while $slug is current"; fi
+  [[ $(snapshot) == "$before" ]] || fail "a refused uninstall changed HOME under $slug"
+done
 ok "uninstall refuses while a Memphis slug is the current theme"
 
 ! bash "$REPO/uninstall.sh" -h | grep -q -- '--no-packages' || fail "uninstall -h still lists --no-packages"
@@ -297,6 +299,20 @@ XDG_CONFIG_HOME="$TMP/xdg" bash "$REPO/uninstall.sh" >/dev/null
   fail "uninstall with XDG_CONFIG_HOME left files under \$HOME/.config"
 [[ $(bar_id) == omarchy.bar ]] || fail "uninstall with XDG_CONFIG_HOME did not reset the bar"
 ok "install and uninstall use \$HOME/.config when XDG_CONFIG_HOME is elsewhere"
+
+# ------------------------------------------------------------ incomplete checkout
+
+BROKEN_REPO="$TMP/repo-broken"
+make_repo "$BROKEN_REPO" real
+rm -rf "$BROKEN_REPO/variants/memphis-gray"
+fresh_home
+mkdir -p "$CONFIG/omarchy/themes/memphis-gray"
+before=$(snapshot)
+if bash "$BROKEN_REPO/install.sh" --no-packages >"$TMP/out" 2>&1; then fail "install ran with a missing Variant dir"; fi
+grep -q 'checkout is incomplete' "$TMP/out" || fail "install did not name the incomplete checkout"
+[[ $(snapshot) == "$before" ]] || fail "install with a missing Variant dir changed HOME"
+[[ ! -s $STUB_STATE/calls.log ]] || fail "install with a missing Variant dir ran commands"
+ok "install stops before any change when a Variant dir is missing"
 
 # ------------------------------------------------------------ build.sh call
 

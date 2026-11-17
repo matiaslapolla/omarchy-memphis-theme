@@ -66,9 +66,24 @@ run() {
   fi
 }
 
+variant_dir() {
+  if [[ $1 == memphis ]]; then
+    printf '%s\n' "$REPO"
+  else
+    printf '%s\n' "$REPO/variants/$1"
+  fi
+}
+
+is_memphis_slug() {
+  case "$1" in
+    memphis | memphis-gray | memphis-dark) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 current_theme=""
 [[ ! -f $THEME_NAME_FILE ]] || current_theme=$(<"$THEME_NAME_FILE")
-if [[ " ${SLUGS[*]} " == *" $current_theme "* ]]; then
+if is_memphis_slug "$current_theme"; then
   echo "$current_theme is the current theme. Switch to another theme first, for example:" >&2
   echo "  omarchy theme set \"Tokyo Night\"" >&2
   echo "Then run ./uninstall.sh again." >&2
@@ -87,10 +102,8 @@ done
 
 for slug in "${SLUGS[@]}"; do
   link="$THEMES_DIR/$slug"
-  source="$REPO"
-  [[ $slug == memphis ]] || source="$REPO/variants/$slug"
   if [[ -L $link ]]; then
-    if [[ $(readlink -f "$link") == "$source" ]]; then
+    if [[ $(readlink -f "$link") == "$(variant_dir "$slug")" ]]; then
       say "Removing the theme link $link"
       run rm -f -- "$link"
     else

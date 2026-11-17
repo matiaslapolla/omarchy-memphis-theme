@@ -14,7 +14,6 @@ HOOK_EVENTS=(theme-set post-boot post-update)
 # Omarchy reads its config from $HOME/.config and ignores XDG_CONFIG_HOME.
 OMARCHY_CONFIG="$HOME/.config/omarchy"
 THEMES_DIR="$OMARCHY_CONFIG/themes"
-# The Memphis slugs. memphis is the repo root, the others are in variants/.
 SLUGS=(memphis memphis-gray memphis-dark)
 HOOKS_DIR="$OMARCHY_CONFIG/hooks"
 PLUGINS_DIR="$OMARCHY_CONFIG/plugins"
@@ -114,13 +113,9 @@ variant_dir() {
 }
 
 link_theme() {
-  local slug="$1" link="$THEMES_DIR/$1" source
-  source=$(variant_dir "$slug")
-  if [[ ! -d $source ]]; then
-    warn "$source not found; skipping $slug"
-    return
-  fi
-  if [[ -L $link && $(readlink -f "$link") == "$source" ]]; then
+  local slug="$1" link="$THEMES_DIR/$1" theme_dir
+  theme_dir=$(variant_dir "$slug")
+  if [[ -L $link && $(readlink -f "$link") == "$theme_dir" ]]; then
     say "Theme link already in place: $link"
     return
   fi
@@ -132,8 +127,8 @@ link_theme() {
     say "Moving the old theme dir $link to $old_dir"
     run mv -- "$link" "$old_dir"
   fi
-  say "Linking $source to $link"
-  run ln -s -- "$source" "$link"
+  say "Linking $theme_dir to $link"
+  run ln -s -- "$theme_dir" "$link"
 }
 
 install_hooks() {
@@ -195,6 +190,15 @@ use_bevel_bar() {
       ;;
   esac
 }
+
+# The theme-set hook treats every slug as Memphis, so a slug without its dir
+# here would leave a foreign theme of that name under the Memphis hook.
+for slug in "${SLUGS[@]}"; do
+  if [[ ! -f $(variant_dir "$slug")/colors.toml ]]; then
+    warn "$(variant_dir "$slug") is missing; the checkout is incomplete. Run git checkout -- . and try again"
+    exit 1
+  fi
+done
 
 if ((DRY_RUN)); then say "Dry run: nothing changes"; fi
 install_packages
