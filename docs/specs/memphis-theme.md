@@ -43,8 +43,8 @@ Win98 "Windows Standard" values (98.css, Chicago95, Wine `syscolor.c`):
 
 ### Theme files (repo root)
 
-- `colors.toml`: `mode = "light"`. The terminal colors use the "Notepad" palette: white background, black text and cursor, a `#000080` selection with white text, and dark Windows console colors that stay readable on white. `selection` is `#C0C0C0`, because btop, tmux and Neovim draw dark text on it. `accent` is `#000080`. `hyprland_active_border` is the active title gradient. `hyprland_inactive_border` is the inactive gradient.
-- `hyprland.lua`: `rounding = 0`, `border_size = 3`, no shadow, no blur, animations off. Omarchy drops this file for a git-cloned theme. The Installer links the repo, so Omarchy keeps it.
+- `colors.toml`: `mode = "light"`. The terminal colors use the "Notepad" palette: a `#E8E8E8` background, black text and cursor, a `#000080` selection with white text, and dark Windows console colors that keep a 4.2:1 contrast or more on that gray. `selection` is `#C0C0C0`, because btop, tmux and Neovim draw dark text on it. `accent` is `#000080`. `hyprland_active_border` is the active title gradient. `hyprland_inactive_border` is the inactive gradient.
+- `hyprland.lua`: `rounding = 0`, `border_size = 3`, no shadow, no blur, animations off. It also wraps the hyprbars `add_button` call, so the titlebar buttons of floating workspaces are 24 px instead of 20. Omarchy drops this file for a git-cloned theme. The Installer links the repo, so Omarchy keeps it.
 - `shell.toml`: the full shell template with Win98 values.
   - The bar is button face with black text and a `#000080` active color.
   - Popups, menu, notifications and polkit use button face with a 2 px `#FFFFFF`→`#808080` 45deg border (Qt y-down axis, so 45deg puts white at the top left).

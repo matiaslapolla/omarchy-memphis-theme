@@ -2,7 +2,7 @@
 
 ![Memphis preview](preview.png)
 
-Memphis gives [Omarchy](https://omarchy.org) the look of a 1998 desktop: a teal desktop, a gray bar at the bottom with a raised edge, navy window borders, square corners, no animations, Chicago95 for GTK apps and a white "Notepad" palette for the terminal.
+Memphis gives [Omarchy](https://omarchy.org) the look of a 1998 desktop: a teal desktop, a gray bar at the bottom with a raised edge, navy window borders, square corners, no animations, Chicago95 for GTK apps and a light gray "Notepad" palette for the terminal.
 
 It keeps the parts of Omarchy that you use every day. Windows still tile, super+space still opens the menu, and the terminal and bar keep your monospace font.
 

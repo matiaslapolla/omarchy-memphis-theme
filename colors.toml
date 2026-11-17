@@ -1,6 +1,6 @@
 mode = "light"
 
-# Terminal palette "Notepad": black text on white, navy selection.
+# Terminal palette "Notepad": black text on light gray, navy selection.
 # The stock templates write ANSI 0 from background, ANSI 7 from foreground,
 # ANSI 8 from muted, ANSI 15 and the cursor from bright_foreground.
 
@@ -10,12 +10,12 @@ accent = "#000080"
 selection = "#C0C0C0"
 selection_background = "#000080"
 selection_foreground = "#FFFFFF"
-muted = "#808080"
+muted = "#6A6A6A"
 
-background = "#FFFFFF"
-dark_background = "#F0F0F0"
-darker_background = "#DFDFDF"
-lighter_background = "#DFDFDF"
+background = "#E8E8E8"
+dark_background = "#DFDFDF"
+darker_background = "#D0D0D0"
+lighter_background = "#D6D6D6"
 
 foreground = "#000000"
 dark_foreground = "#606060"
@@ -32,9 +32,9 @@ magenta = "#800080"
 brown = "#804000"
 
 bright_red = "#C00000"
-bright_yellow = "#A07800"
-bright_green = "#009000"
-bright_cyan = "#008B8B"
+bright_yellow = "#8A6800"
+bright_green = "#007A00"
+bright_cyan = "#007B7B"
 bright_blue = "#0000C0"
 bright_magenta = "#A000A0"
 
