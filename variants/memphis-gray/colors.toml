@@ -10,7 +10,7 @@ accent = "#000080"
 selection = "#D4D4D4"
 selection_background = "#000080"
 selection_foreground = "#FFFFFF"
-muted = "#505050"
+muted = "#484848"
 
 background = "#B4B4B4"
 dark_background = "#ABABAB"

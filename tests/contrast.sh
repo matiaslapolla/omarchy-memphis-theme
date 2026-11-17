@@ -15,7 +15,7 @@ import tomllib
 MIN_TEXT = 4.2
 MIN_FOREGROUND = 7.0
 MIN_SELECTION = 4.5
-MIN_MUTED = 3.0
+MIN_MUTED = 4.2
 COLORS = ["red", "yellow", "orange", "green", "cyan", "blue", "magenta", "brown",
           "bright_red", "bright_yellow", "bright_green", "bright_cyan",
           "bright_blue", "bright_magenta"]
