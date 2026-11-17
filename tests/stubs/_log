@@ -1,0 +1,5 @@
+#!/bin/bash
+# Test stub: logs the call and succeeds. Linked as yay, fc-cache, notify-send.
+set -euo pipefail
+: "${STUB_STATE:?stub called outside a test}"
+printf '%s %s\n' "${0##*/}" "$*" >>"$STUB_STATE/calls.log"

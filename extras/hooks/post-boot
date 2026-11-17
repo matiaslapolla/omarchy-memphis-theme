@@ -1,0 +1,37 @@
+#!/bin/bash
+# Memphis post-boot hook. ~/.config/hypr/cursor.lua sets the user's cursor at
+# login, so this sets the Memphis cursor again while memphis is the theme.
+
+set -euo pipefail
+
+CURSOR_THEME="Chicago95_Cursor_Black"
+SCHEMA="org.gnome.desktop.interface"
+THEME_NAME_FILE="$HOME/.local/state/omarchy/current/theme.name"
+ICON_DIRS="${MEMPHIS_ICON_DIRS:-$HOME/.local/share/icons:$HOME/.icons:/usr/share/icons}"
+
+[[ -f $THEME_NAME_FILE && $(<"$THEME_NAME_FILE") == "memphis" ]] || exit 0
+
+found=0
+IFS=: read -ra dirs <<<"$ICON_DIRS"
+for dir in "${dirs[@]}"; do
+  if [[ -d $dir/$CURSOR_THEME/cursors ]]; then
+    found=1
+    break
+  fi
+done
+if ((!found)); then
+  echo "memphis post-boot: $CURSOR_THEME not installed; skipping cursor" >&2
+  exit 0
+fi
+
+size=24
+if command -v gsettings >/dev/null 2>&1; then
+  gsettings set "$SCHEMA" cursor-theme "$CURSOR_THEME" || echo "memphis post-boot: could not set cursor-theme" >&2
+  raw=$(gsettings get "$SCHEMA" cursor-size 2>/dev/null || true)
+  raw="${raw##* }"
+  [[ $raw =~ ^[0-9]+$ ]] && size="$raw"
+fi
+
+if command -v hyprctl >/dev/null 2>&1; then
+  hyprctl setcursor "$CURSOR_THEME" "$size" >/dev/null || echo "memphis post-boot: hyprctl setcursor failed" >&2
+fi

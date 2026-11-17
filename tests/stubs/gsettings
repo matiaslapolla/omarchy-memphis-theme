@@ -1,0 +1,36 @@
+#!/bin/bash
+# Test stub: keeps gsettings keys as files under $STUB_STATE/gsettings.
+set -euo pipefail
+: "${STUB_STATE:?stub called outside a test}"
+printf 'gsettings %s\n' "$*" >>"$STUB_STATE/calls.log"
+
+dir="$STUB_STATE/gsettings"
+mkdir -p "$dir"
+
+# gsettings prints strings as quoted GVariant text and numbers bare.
+gvariant() {
+  local value="$1"
+  if [[ $value =~ ^\'.*\'$ || $value =~ ^-?[0-9]+$ || $value =~ ^(true|false)$ || $value =~ ^u?int32\  ]]; then
+    printf '%s\n' "$value"
+  else
+    value="${value//\\/\\\\}"
+    printf "'%s'\n" "${value//\'/\\\'}"
+  fi
+}
+
+case "${1:-}" in
+  get)
+    (($# == 3)) || exit 1
+    file="$dir/$2.$3"
+    [[ -f $file ]] || { echo "No such key \"$3\"" >&2; exit 1; }
+    cat "$file"
+    ;;
+  set)
+    (($# == 4)) || exit 1
+    gvariant "$4" >"$dir/$2.$3"
+    ;;
+  *)
+    echo "gsettings stub: unsupported: $*" >&2
+    exit 1
+    ;;
+esac

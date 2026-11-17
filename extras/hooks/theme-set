@@ -1,0 +1,305 @@
+#!/bin/bash
+# Memphis theme hook. Omarchy runs it after each theme switch with the theme
+# slug as $1. On memphis it saves the user's values once and applies the
+# Win98 GTK theme, cursor, UI font, bevel bar and bottom bar position. On any
+# other slug it restores the saved values and deletes the saved state.
+
+set -euo pipefail
+
+SLUG="${1:-}"
+[[ -n $SLUG ]] || exit 0
+
+SCHEMA="org.gnome.desktop.interface"
+GTK_THEME="Chicago95"
+CURSOR_THEME="Chicago95_Cursor_Black"
+FONT_FAMILY_FALLBACK="W95FA"
+FONT_SIZE="11"
+BAR_ID="memphis.bar"
+BAR_POSITION="bottom"
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/memphis"
+SAVED="$STATE_DIR/saved.env"
+CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+GTK4_CSS="$CONFIG_HOME/gtk-4.0/gtk.css"
+SHELL_JSON="$CONFIG_HOME/omarchy/shell.json"
+PLUGINS_DIR="$CONFIG_HOME/omarchy/plugins"
+FONT_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/fonts/memphis"
+THEME_DIRS="${MEMPHIS_THEME_DIRS:-$HOME/.local/share/themes:$HOME/.themes:/usr/share/themes}"
+ICON_DIRS="${MEMPHIS_ICON_DIRS:-$HOME/.local/share/icons:$HOME/.icons:/usr/share/icons}"
+MARK_BEGIN="/* memphis:begin */"
+MARK_END="/* memphis:end */"
+
+warn() { echo "memphis theme-set: $*" >&2; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# ------------------------------------------------------------------ lookups
+
+find_in_dirs() {
+  local dirs="$1" rel="$2" dir
+  local IFS=:
+  for dir in $dirs; do
+    if [[ -e $dir/$rel ]]; then
+      printf '%s\n' "$dir/$rel"
+      return 0
+    fi
+  done
+  return 1
+}
+
+gs_get() { gsettings get "$SCHEMA" "$1" 2>/dev/null; }
+
+# gsettings prints strings as GVariant text ('Yaru'); hyprctl wants the bare name.
+gvariant_string() {
+  local value="$1"
+  if [[ $value == \'*\' ]]; then
+    value="${value#\'}"
+    value="${value%\'}"
+    value="${value//\\\'/\'}"
+  fi
+  printf '%s\n' "$value"
+}
+
+gvariant_int() {
+  local value="${1##* }"
+  [[ $value =~ ^[0-9]+$ ]] || value=24
+  printf '%s\n' "$value"
+}
+
+current_bar_id() {
+  local file="$SHELL_JSON"
+  [[ -s $file ]] || file="${OMARCHY_PATH:-/usr/share/omarchy}/config/omarchy/shell.json"
+  [[ -s $file ]] || { echo "omarchy.bar"; return; }
+  jq -r '.bar.id // "omarchy.bar"' "$file" 2>/dev/null || echo "omarchy.bar"
+}
+
+current_bar_position() {
+  omarchy bar position 2>/dev/null || echo "top"
+}
+
+font_family() {
+  local file family=""
+  for file in "$FONT_DIR"/*.otf "$FONT_DIR"/*.ttf; do
+    [[ -f $file ]] || continue
+    if have fc-scan; then
+      family=$(fc-scan --format '%{family[0]}' "$file" 2>/dev/null || true)
+    fi
+    printf '%s\n' "${family:-$FONT_FAMILY_FALLBACK}"
+    return 0
+  done
+  return 1
+}
+
+# ------------------------------------------------------------------ saved state
+
+# Values must be one line. Bar ids and positions come from a file the user
+# edits, so they are checked before they reach a command.
+valid_line() { [[ $1 != *$'\n'* ]]; }
+valid_bar_id() { [[ $1 =~ ^[A-Za-z0-9._-]+$ ]]; }
+valid_position() { [[ $1 =~ ^(top|bottom|left|right)$ ]]; }
+
+save_state() {
+  [[ ! -e $SAVED ]] || return 0
+
+  local cursor_theme cursor_size font_name bar_id bar_position gtk4_existed=0
+  cursor_theme=$(gs_get cursor-theme || true)
+  cursor_size=$(gs_get cursor-size || true)
+  font_name=$(gs_get font-name || true)
+  bar_id=$(current_bar_id)
+  bar_position=$(current_bar_position)
+  [[ -e $GTK4_CSS ]] && gtk4_existed=1
+
+  # A lost saved state while Memphis is active must not save Memphis itself.
+  [[ $bar_id != "$BAR_ID" ]] || bar_id="omarchy.bar"
+
+  valid_bar_id "$bar_id" || bar_id="omarchy.bar"
+  valid_position "$bar_position" || bar_position="top"
+  local value
+  for value in "$cursor_theme" "$cursor_size" "$font_name"; do
+    valid_line "$value" || { warn "unexpected multi-line gsettings value; not saving state"; return 1; }
+  done
+
+  mkdir -p "$STATE_DIR"
+  local tmp="$SAVED.tmp.$$"
+  {
+    printf 'cursor_theme=%s\n' "$cursor_theme"
+    printf 'cursor_size=%s\n' "$cursor_size"
+    printf 'font_name=%s\n' "$font_name"
+    printf 'bar_id=%s\n' "$bar_id"
+    printf 'bar_position=%s\n' "$bar_position"
+    printf 'gtk4_css_existed=%s\n' "$gtk4_existed"
+  } >"$tmp"
+  mv "$tmp" "$SAVED"
+}
+
+declare -A STATE=()
+load_state() {
+  local line key
+  while IFS= read -r line || [[ -n $line ]]; do
+    [[ $line == *=* ]] || continue
+    key="${line%%=*}"
+    case "$key" in
+      cursor_theme | cursor_size | font_name | bar_id | bar_position | gtk4_css_existed)
+        STATE[$key]="${line#*=}"
+        ;;
+    esac
+  done <"$SAVED"
+}
+
+# ------------------------------------------------------------------ gtk-4.0 css
+
+sed_regex() { printf '%s' "$1" | sed 's/[]\/$*.^[]/\\&/g'; }
+
+# sed keeps a missing final newline, so the rest of the file stays byte-identical.
+remove_css_block() {
+  [[ -f $GTK4_CSS ]] && grep -qxF "$MARK_BEGIN" "$GTK4_CSS" || return 0
+  local begin end
+  begin=$(sed_regex "$MARK_BEGIN")
+  end=$(sed_regex "$MARK_END")
+  sed -i --follow-symlinks "/^$begin\$/,/^$end\$/d" "$GTK4_CSS"
+}
+
+# The block goes first: GTK ignores an @import that follows other rules.
+add_css_block() {
+  local import_css="$1"
+  mkdir -p "${GTK4_CSS%/*}"
+  remove_css_block
+  local tmp="$GTK4_CSS.memphis.$$"
+  {
+    printf '%s\n' "$MARK_BEGIN"
+    printf '@import url("file://%s");\n' "$import_css"
+    printf '%s\n' "$MARK_END"
+    [[ ! -f $GTK4_CSS ]] || cat "$GTK4_CSS"
+  } >"$tmp"
+  if [[ -f $GTK4_CSS ]]; then
+    cat "$tmp" >"$GTK4_CSS"
+    rm -f "$tmp"
+  else
+    mv "$tmp" "$GTK4_CSS"
+  fi
+}
+
+# ------------------------------------------------------------------ bar
+
+use_bar() {
+  local id="$1"
+  [[ $(current_bar_id) != "$id" ]] || return 0
+  omarchy bar use "$id" >/dev/null
+}
+
+set_bar_position() {
+  local position="$1"
+  [[ $(current_bar_position) != "$position" ]] || return 0
+  omarchy bar position "$position" >/dev/null
+}
+
+# ------------------------------------------------------------------ apply
+
+apply_memphis() {
+  save_state || warn "could not save the current values; continuing"
+
+  if ! have gsettings; then
+    warn "gsettings not found; skipping GTK theme, cursor and font"
+  else
+    if find_in_dirs "$THEME_DIRS" "$GTK_THEME/index.theme" >/dev/null ||
+      find_in_dirs "$THEME_DIRS" "$GTK_THEME/gtk-3.0" >/dev/null; then
+      gsettings set "$SCHEMA" gtk-theme "$GTK_THEME" || warn "could not set gtk-theme"
+    else
+      warn "$GTK_THEME GTK theme not installed; skipping gtk-theme"
+    fi
+
+    if find_in_dirs "$ICON_DIRS" "$CURSOR_THEME/cursors" >/dev/null; then
+      gsettings set "$SCHEMA" cursor-theme "$CURSOR_THEME" || warn "could not set cursor-theme"
+      if have hyprctl; then
+        hyprctl setcursor "$CURSOR_THEME" "$(gvariant_int "$(gs_get cursor-size || true)")" >/dev/null ||
+          warn "hyprctl setcursor failed"
+      fi
+    else
+      warn "$CURSOR_THEME cursor theme not installed; skipping cursor"
+    fi
+
+    local family
+    if family=$(font_family); then
+      gsettings set "$SCHEMA" font-name "$family $FONT_SIZE" || warn "could not set font-name"
+    else
+      warn "Memphis font not installed in $FONT_DIR; skipping font-name"
+    fi
+  fi
+
+  local import_css
+  if import_css=$(find_in_dirs "$THEME_DIRS" "$GTK_THEME/gtk-4.0/gtk.css"); then
+    add_css_block "$import_css" || warn "could not update $GTK4_CSS"
+  else
+    warn "$GTK_THEME gtk-4.0/gtk.css not found; skipping GTK4 import"
+  fi
+
+  if have omarchy; then
+    if [[ -f $PLUGINS_DIR/$BAR_ID/manifest.json ]]; then
+      use_bar "$BAR_ID" || warn "could not switch the bar to $BAR_ID"
+    else
+      warn "$BAR_ID plugin not built; keeping the current bar"
+    fi
+    set_bar_position "$BAR_POSITION" || warn "could not move the bar to $BAR_POSITION"
+  else
+    warn "omarchy not found; skipping bar"
+  fi
+}
+
+restore() {
+  # The block is only ever ours, so it goes even without a saved state.
+  remove_css_block || warn "could not clean $GTK4_CSS"
+  [[ -f $SAVED ]] || return 0
+
+  load_state
+  local ok=1
+
+  if have gsettings; then
+    local key
+    for key in cursor-theme cursor-size font-name; do
+      local value="${STATE[${key//-/_}]:-}"
+      [[ -n $value ]] || continue
+      gsettings set "$SCHEMA" "$key" "$value" || { warn "could not restore $key"; ok=0; }
+    done
+    if have hyprctl && [[ -n ${STATE[cursor_theme]:-} ]]; then
+      hyprctl setcursor "$(gvariant_string "${STATE[cursor_theme]}")" "$(gvariant_int "${STATE[cursor_size]:-24}")" >/dev/null ||
+        warn "hyprctl setcursor failed"
+    fi
+  else
+    warn "gsettings not found; cannot restore cursor and font"
+    ok=0
+  fi
+
+  if [[ ${STATE[gtk4_css_existed]:-1} == 0 && -f $GTK4_CSS && ! -s $GTK4_CSS ]]; then
+    rm -f "$GTK4_CSS"
+  fi
+
+  if have omarchy; then
+    local bar_id="${STATE[bar_id]:-omarchy.bar}" bar_position="${STATE[bar_position]:-top}"
+    valid_bar_id "$bar_id" || bar_id="omarchy.bar"
+    valid_position "$bar_position" || bar_position="top"
+    if ! use_bar "$bar_id"; then
+      if [[ $bar_id != "omarchy.bar" ]] && use_bar "omarchy.bar"; then
+        warn "saved bar $bar_id is gone; switched to omarchy.bar"
+      else
+        warn "could not switch the bar back to $bar_id"
+        ok=0
+      fi
+    fi
+    set_bar_position "$bar_position" || { warn "could not move the bar back to $bar_position"; ok=0; }
+  else
+    warn "omarchy not found; cannot restore the bar"
+    ok=0
+  fi
+
+  if ((ok)); then
+    rm -f "$SAVED"
+    rmdir "$STATE_DIR" 2>/dev/null || true
+  else
+    warn "kept $SAVED so the next theme switch retries the restore"
+  fi
+}
+
+if [[ $SLUG == "memphis" ]]; then
+  apply_memphis
+else
+  restore
+fi

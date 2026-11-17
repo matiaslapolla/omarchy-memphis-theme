@@ -1,0 +1,6 @@
+#!/bin/bash
+# Test stub: logs the call and fails. Linked as commands a test must never run.
+set -euo pipefail
+printf '%s %s\n' "${0##*/}" "$*" >>"${STUB_STATE:-/dev/null}/calls.log" 2>/dev/null || true
+echo "${0##*/} must not run in tests: $*" >&2
+exit 97

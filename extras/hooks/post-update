@@ -1,0 +1,59 @@
+#!/bin/bash
+# Memphis post-update hook. `omarchy update` can change the stock Bar.qml, so
+# this rebuilds the memphis.bar plugin from it when the plugin is installed.
+# A failed rebuild removes the stale plugin, because its copy of the old
+# Bar.qml may not load against the new shell.
+
+set -euo pipefail
+
+CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+PLUGINS_DIR="$CONFIG_HOME/omarchy/plugins"
+TARGET="$PLUGINS_DIR/memphis.bar"
+SHELL_JSON="$CONFIG_HOME/omarchy/shell.json"
+THEME_LINK="$CONFIG_HOME/omarchy/themes/memphis"
+
+warn() { echo "memphis post-update: $*" >&2; }
+
+notify() {
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "Memphis" "$1" || true
+  fi
+}
+
+drop_stale_bar() {
+  local reason="$1"
+  if [[ $(jq -r '.id // ""' "$TARGET/manifest.json" 2>/dev/null) != "memphis.bar" ]]; then
+    warn "$reason; $TARGET is not ours, leaving it"
+    return
+  fi
+  if [[ -s $SHELL_JSON && $(jq -r '.bar.id // ""' "$SHELL_JSON" 2>/dev/null) == "memphis.bar" ]]; then
+    omarchy bar reset >/dev/null || warn "omarchy bar reset failed"
+  fi
+  rm -rf "$TARGET"
+  warn "$reason; removed memphis.bar, the bar is omarchy.bar"
+  notify "The bevel bar could not be rebuilt after the update. The bar is back to the stock one."
+}
+
+[[ -d $TARGET ]] || exit 0
+
+repo=$(readlink -f "$THEME_LINK" 2>/dev/null || true)
+build="$repo/extras/bar-bevel/build.sh"
+if [[ -z $repo || ! -f $build ]]; then
+  drop_stale_bar "no Memphis repo behind $THEME_LINK"
+  exit 0
+fi
+
+# Build beside the target in a dot dir, which the shell's plugin scan skips,
+# then swap it in, so the shell never sees a half-built plugin.
+stage=$(mktemp -d "$PLUGINS_DIR/.memphis-build.XXXXXX")
+trap 'rm -rf "$stage"' EXIT
+
+if ! bash "$build" "$stage" >&2 || [[ ! -f $stage/memphis.bar/manifest.json ]]; then
+  drop_stale_bar "build.sh failed"
+  exit 0
+fi
+
+if ! mv --exchange "$stage/memphis.bar" "$TARGET" 2>/dev/null; then
+  rm -rf "$TARGET"
+  mv "$stage/memphis.bar" "$TARGET"
+fi

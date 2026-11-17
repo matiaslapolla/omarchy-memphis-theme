@@ -1,0 +1,52 @@
+#!/bin/bash
+# jq programs take their values through --arg.
+# shellcheck disable=SC2016
+# Test stub: handles `omarchy bar use|reset|position` on the temp
+# shell.json the way omarchy-bar does (jq -S, .bar.id absent for omarchy.bar).
+set -euo pipefail
+: "${STUB_STATE:?stub called outside a test}"
+printf 'omarchy %s\n' "$*" >>"$STUB_STATE/calls.log"
+
+config="$HOME/.config/omarchy/shell.json"
+
+commit() {
+  mkdir -p "${config%/*}"
+  [[ -s $config ]] || echo '{}' >"$config"
+  local tmp
+  tmp=$(mktemp)
+  jq -S "$@" "$config" >"$tmp"
+  mv "$tmp" "$config"
+}
+
+case "${1:-} ${2:-}" in
+  "bar use")
+    id="${3:?bar option id is required}"
+    if [[ $id == "omarchy.bar" || $id == "default" || $id == "built-in" ]]; then
+      commit 'del(.bar.id)'
+    else
+      [[ -f $HOME/.config/omarchy/plugins/$id/manifest.json ]] || {
+        echo "omarchy-bar: $id is not a known bar option" >&2
+        exit 1
+      }
+      commit '.bar.id = $id' --arg id "$id"
+    fi
+    echo "Using $id as the active bar"
+    ;;
+  "bar reset")
+    commit 'del(.bar.id)'
+    echo "Using omarchy.bar as the active bar"
+    ;;
+  "bar position")
+    if (($# == 2)); then
+      if [[ -s $config ]]; then jq -r '.bar.position // "top"' "$config"; else echo top; fi
+    else
+      [[ $3 =~ ^(top|bottom|left|right)$ ]] || exit 1
+      commit '.bar.position = $p' --arg p "$3"
+      echo "Bar position set to $3"
+    fi
+    ;;
+  *)
+    echo "omarchy stub: unsupported: $*" >&2
+    exit 1
+    ;;
+esac

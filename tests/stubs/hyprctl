@@ -1,0 +1,20 @@
+#!/bin/bash
+# Test stub: records `hyprctl setcursor` in $STUB_STATE/hyprctl.cursor.
+set -euo pipefail
+: "${STUB_STATE:?stub called outside a test}"
+printf 'hyprctl %s\n' "$*" >>"$STUB_STATE/calls.log"
+
+case "${1:-}" in
+  setcursor)
+    (($# == 3)) || exit 1
+    printf '%s %s\n' "$2" "$3" >"$STUB_STATE/hyprctl.cursor"
+    echo ok
+    ;;
+  getoption)
+    echo "int: 0"
+    ;;
+  *)
+    echo "hyprctl stub: unsupported: $*" >&2
+    exit 1
+    ;;
+esac
