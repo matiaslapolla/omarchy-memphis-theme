@@ -32,7 +32,7 @@ done
 make_repo() {
   local repo="$1" build_mode="$2"
   mkdir -p "$repo"
-  (cd "$ROOT" && tar --exclude=.git -cf - .) | tar -xf - -C "$repo"
+  (cd "$ROOT" && tar --exclude=.git --exclude=.worktrees -cf - .) | tar -xf - -C "$repo"
   if [[ ! -f $repo/fonts/W95FA.otf ]]; then
     mkdir -p "$repo/fonts"
     echo "fake font" >"$repo/fonts/W95FA.otf"
@@ -90,6 +90,8 @@ REPO="$TMP/repo"
 make_repo "$REPO" real
 CONFIG="$HOME/.config"
 LINK="$CONFIG/omarchy/themes/memphis"
+GRAY_LINK="$CONFIG/omarchy/themes/memphis-gray"
+DARK_LINK="$CONFIG/omarchy/themes/memphis-dark"
 FONT_DIR="$HOME/.local/share/fonts/memphis"
 PLUGIN="$CONFIG/omarchy/plugins/memphis.bar"
 SHELL_JSON="$CONFIG/omarchy/shell.json"
@@ -124,6 +126,8 @@ ok "install -h prints usage and an unknown option fails"
 
 out=$(bash "$REPO/install.sh" --no-packages)
 [[ -L $LINK && $(readlink -f "$LINK") == "$REPO" ]] || fail "theme link missing or wrong"
+[[ -L $GRAY_LINK && $(readlink -f "$GRAY_LINK") == "$REPO/variants/memphis-gray" ]] || fail "memphis-gray link missing or wrong"
+[[ -L $DARK_LINK && $(readlink -f "$DARK_LINK") == "$REPO/variants/memphis-dark" ]] || fail "memphis-dark link missing or wrong"
 for event in theme-set post-boot post-update; do
   hook="$CONFIG/omarchy/hooks/$event.d/memphis"
   [[ -f $hook ]] || fail "$event hook missing"
@@ -137,8 +141,11 @@ grep -qx "fc-cache -f $FONT_DIR" "$STUB_STATE/calls.log" || fail "fc-cache did n
 [[ -z $(find "$CONFIG/omarchy/plugins" -maxdepth 1 -name '.memphis-*') ]] || fail "install left a build dir"
 ! grep -q '^yay ' "$STUB_STATE/calls.log" || fail "--no-packages ran yay"
 [[ $(live_calls) == "omarchy bar use memphis.bar" ]] || fail "install ran other live commands: $(live_calls)"
-[[ $out == *"omarchy theme set memphis"* ]] || fail "install did not print the final instruction"
-ok "install --no-packages links the theme, copies hooks and font, builds the bar"
+for slug in memphis memphis-gray memphis-dark; do
+  [[ $out == *"omarchy theme set $slug"$'\n'* || $out == *"omarchy theme set $slug" ]] ||
+    fail "install did not print the command for $slug"
+done
+ok "install --no-packages links the three Variants, copies hooks and font, builds the bar"
 
 [[ $(bar_id) == memphis.bar ]] || fail "install did not make memphis.bar the bar engine: $(bar_id)"
 [[ $out == *"Switching the bar from omarchy.bar to memphis.bar"* ]] || fail "install did not say it switches the bar"
@@ -172,7 +179,13 @@ before=$(snapshot)
 if bash "$REPO/uninstall.sh" >"$TMP/out" 2>&1; then fail "uninstall ran while memphis is current"; fi
 grep -q 'Switch to another theme first' "$TMP/out" || fail "uninstall refusal has no message"
 [[ $(snapshot) == "$before" ]] || fail "a refused uninstall changed HOME"
-ok "uninstall refuses while memphis is the current theme"
+for slug in memphis-gray memphis-dark; do
+  set_theme "$slug"
+  before=$(snapshot)
+  if bash "$REPO/uninstall.sh" >"$TMP/out" 2>&1; then fail "uninstall ran while $slug is current"; fi
+  [[ $(snapshot) == "$before" ]] || fail "a refused uninstall changed HOME under $slug"
+done
+ok "uninstall refuses while a Memphis slug is the current theme"
 
 ! bash "$REPO/uninstall.sh" -h | grep -q -- '--no-packages' || fail "uninstall -h still lists --no-packages"
 ok "uninstall has no --no-packages option"
@@ -187,7 +200,9 @@ out=$(bash "$REPO/uninstall.sh" --dry-run)
 ok "uninstall --dry-run changes nothing"
 
 out=$(bash "$REPO/uninstall.sh")
-[[ ! -e $LINK && ! -L $LINK ]] || fail "uninstall left the theme link"
+for link in "$LINK" "$GRAY_LINK" "$DARK_LINK"; do
+  [[ ! -e $link && ! -L $link ]] || fail "uninstall left the theme link $link"
+done
 for event in theme-set post-boot post-update; do
   [[ ! -e $CONFIG/omarchy/hooks/$event.d/memphis ]] || fail "uninstall left the $event hook"
 done
@@ -200,7 +215,7 @@ done
 # Omarchy keeps shell.json; only the bar id goes.
 leftover=$(find "$HOME" -path "$HOME/.local/state" -prune -o -path "$SHELL_JSON" -prune -o \( -type f -o -type l \) -print)
 [[ -z $leftover ]] || fail "uninstall left files: $leftover"
-ok "uninstall removes hooks, link, bevel bar and font and leaves packages"
+ok "uninstall removes hooks, the three links, bevel bar and font and leaves packages"
 
 [[ $(bar_id) == omarchy.bar ]] || fail "uninstall left the bar engine on $(bar_id)"
 grep -qx memphis.bar "$STUB_STATE/bar-reset.plugins" || fail "uninstall removed memphis.bar before the bar reset"
@@ -265,7 +280,8 @@ old_dirs=("$CONFIG/omarchy"/memphis-theme.old.*)
 ((${#old_dirs[@]} == 1)) || fail "install moved the old theme dir more than once"
 [[ -L $LINK && $(readlink -f "$LINK") == "$REPO" ]] || fail "the link was not created after the move"
 themes=$(find "$CONFIG/omarchy/themes" -mindepth 1 -maxdepth 1 -printf '%f\n')
-[[ $themes == memphis ]] || fail "themes/ holds more than the memphis link: $themes"
+[[ $(sort <<<"$themes" | tr '\n' ' ') == "memphis memphis-dark memphis-gray " ]] ||
+  fail "themes/ holds more than the three Memphis links: $themes"
 ok "install moves an old theme dir out of themes/ to memphis-theme.old.<timestamp>"
 
 # ------------------------------------------------------------ XDG_CONFIG_HOME
@@ -283,6 +299,20 @@ XDG_CONFIG_HOME="$TMP/xdg" bash "$REPO/uninstall.sh" >/dev/null
   fail "uninstall with XDG_CONFIG_HOME left files under \$HOME/.config"
 [[ $(bar_id) == omarchy.bar ]] || fail "uninstall with XDG_CONFIG_HOME did not reset the bar"
 ok "install and uninstall use \$HOME/.config when XDG_CONFIG_HOME is elsewhere"
+
+# ------------------------------------------------------------ incomplete checkout
+
+BROKEN_REPO="$TMP/repo-broken"
+make_repo "$BROKEN_REPO" real
+rm -rf "$BROKEN_REPO/variants/memphis-gray"
+fresh_home
+mkdir -p "$CONFIG/omarchy/themes/memphis-gray"
+before=$(snapshot)
+if bash "$BROKEN_REPO/install.sh" --no-packages >"$TMP/out" 2>&1; then fail "install ran with a missing Variant dir"; fi
+grep -q 'checkout is incomplete' "$TMP/out" || fail "install did not name the incomplete checkout"
+[[ $(snapshot) == "$before" ]] || fail "install with a missing Variant dir changed HOME"
+[[ ! -s $STUB_STATE/calls.log ]] || fail "install with a missing Variant dir ran commands"
+ok "install stops before any change when a Variant dir is missing"
 
 # ------------------------------------------------------------ build.sh call
 

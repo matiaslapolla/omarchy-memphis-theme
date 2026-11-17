@@ -18,7 +18,12 @@ fi
   extras/assets/gen-images.sh tests/*.sh
 echo "shellcheck: OK"
 
-for test in tests/render.sh tests/bar-bevel.sh tests/hooks.sh tests/install.sh; do
+for theme in . variants/*/; do
+  bash tests/render.sh "$theme" >/dev/null
+  echo "tests/render.sh $theme: OK"
+done
+
+for test in tests/contrast.sh tests/variants.sh tests/bar-bevel.sh tests/hooks.sh tests/install.sh; do
   bash "$test" >/dev/null
   echo "$test: OK"
 done

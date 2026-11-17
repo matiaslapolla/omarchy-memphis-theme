@@ -1,0 +1,42 @@
+mode = "dark"
+
+# Terminal palette "Console dark": light gray text on soft charcoal, never
+# pure black. The stock templates write ANSI 0 from background, ANSI 7 from
+# foreground, ANSI 8 from muted, ANSI 15 and the cursor from bright_foreground.
+
+accent = "#4FA6E8"
+# btop, tmux, Neovim visual mode and hermes draw light text on `selection`,
+# so it stays dark. The terminals use selection_background/foreground.
+selection = "#3A4A66"
+selection_background = "#1C5FA8"
+selection_foreground = "#FFFFFF"
+muted = "#8A8A8A"
+
+background = "#262626"
+dark_background = "#202020"
+darker_background = "#1A1A1A"
+lighter_background = "#333333"
+
+foreground = "#D8D8D8"
+dark_foreground = "#A8A8A8"
+light_foreground = "#E8E8E8"
+bright_foreground = "#FFFFFF"
+
+red = "#E06060"
+yellow = "#D8B840"
+orange = "#E09040"
+green = "#60C060"
+cyan = "#40C0C0"
+blue = "#6C9CF0"
+magenta = "#D070D0"
+brown = "#C08850"
+
+bright_red = "#FF8080"
+bright_yellow = "#F0D860"
+bright_green = "#80E080"
+bright_cyan = "#70E0E0"
+bright_blue = "#90B8FF"
+bright_magenta = "#F090F0"
+
+hyprland_active_border = "rgb(000080) rgb(1084D0) 0deg"
+hyprland_inactive_border = "rgb(404040) rgb(606060) 0deg"

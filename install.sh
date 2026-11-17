@@ -2,7 +2,8 @@
 # Installs the Memphis theme: packages, font, theme link, hooks and the bevel
 # bar. The only live change is the bar engine switch to memphis.bar, which
 # looks the same as the stock bar under other themes. It does not apply the
-# theme. Run `omarchy theme set memphis` afterwards.
+# theme. Run `omarchy theme set memphis` (or memphis-gray, memphis-dark)
+# afterwards.
 
 set -euo pipefail
 
@@ -13,7 +14,7 @@ HOOK_EVENTS=(theme-set post-boot post-update)
 # Omarchy reads its config from $HOME/.config and ignores XDG_CONFIG_HOME.
 OMARCHY_CONFIG="$HOME/.config/omarchy"
 THEMES_DIR="$OMARCHY_CONFIG/themes"
-THEME_LINK="$THEMES_DIR/memphis"
+SLUGS=(memphis memphis-gray memphis-dark)
 HOOKS_DIR="$OMARCHY_CONFIG/hooks"
 PLUGINS_DIR="$OMARCHY_CONFIG/plugins"
 SHELL_JSON="$OMARCHY_CONFIG/shell.json"
@@ -35,7 +36,10 @@ omarchy.bar, it switches the bar engine to the bevel bar memphis.bar.
   --no-packages   Skip the yay install of ${PACKAGES[*]}
   -h, --help      Show this help
 
-After the install, run: omarchy theme set memphis
+After the install, run one of:
+  omarchy theme set memphis
+  omarchy theme set memphis-gray
+  omarchy theme set memphis-dark
 USAGE
 }
 
@@ -100,21 +104,31 @@ install_font() {
   fi
 }
 
+variant_dir() {
+  if [[ $1 == memphis ]]; then
+    printf '%s\n' "$REPO"
+  else
+    printf '%s\n' "$REPO/variants/$1"
+  fi
+}
+
 link_theme() {
-  if [[ -L $THEME_LINK && $(readlink -f "$THEME_LINK") == "$REPO" ]]; then
-    say "Theme link already in place: $THEME_LINK"
+  local slug="$1" link="$THEMES_DIR/$1" theme_dir
+  theme_dir=$(variant_dir "$slug")
+  if [[ -L $link && $(readlink -f "$link") == "$theme_dir" ]]; then
+    say "Theme link already in place: $link"
     return
   fi
   run mkdir -p "$THEMES_DIR"
   # omarchy-theme-list shows every entry in themes/, so the old dir goes outside it.
-  if [[ -e $THEME_LINK || -L $THEME_LINK ]]; then
+  if [[ -e $link || -L $link ]]; then
     local old_dir
-    old_dir="$OMARCHY_CONFIG/memphis-theme.old.$(date +%Y%m%d%H%M%S)"
-    say "Moving the old theme dir $THEME_LINK to $old_dir"
-    run mv -- "$THEME_LINK" "$old_dir"
+    old_dir="$OMARCHY_CONFIG/$slug-theme.old.$(date +%Y%m%d%H%M%S)"
+    say "Moving the old theme dir $link to $old_dir"
+    run mv -- "$link" "$old_dir"
   fi
-  say "Linking $REPO to $THEME_LINK"
-  run ln -s -- "$REPO" "$THEME_LINK"
+  say "Linking $theme_dir to $link"
+  run ln -s -- "$theme_dir" "$link"
 }
 
 install_hooks() {
@@ -177,10 +191,19 @@ use_bevel_bar() {
   esac
 }
 
+# The theme-set hook treats every slug as Memphis, so a slug without its dir
+# here would leave a foreign theme of that name under the Memphis hook.
+for slug in "${SLUGS[@]}"; do
+  if [[ ! -f $(variant_dir "$slug")/colors.toml ]]; then
+    warn "$(variant_dir "$slug") is missing; the checkout is incomplete. Run git checkout -- . and try again"
+    exit 1
+  fi
+done
+
 if ((DRY_RUN)); then say "Dry run: nothing changes"; fi
 install_packages
 install_font
-link_theme
+for slug in "${SLUGS[@]}"; do link_theme "$slug"; done
 install_hooks
 if build_bar; then use_bevel_bar; fi
 
@@ -188,7 +211,7 @@ echo
 if ((DRY_RUN)); then
   echo "Dry run done. After a real install, apply Memphis with:"
 else
-  echo "Memphis is installed. Apply it with:"
+  echo "Memphis is installed. Apply a Variant with one of:"
 fi
 echo
-echo "  omarchy theme set memphis"
+for slug in "${SLUGS[@]}"; do echo "  omarchy theme set $slug"; done

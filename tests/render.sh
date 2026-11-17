@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Dry render of every stock Omarchy template with this theme's colors.toml.
+# Dry render of every stock Omarchy template with a theme's colors.toml.
+# Usage: tests/render.sh [theme-dir]   (default: the repo root)
 #
 # It runs the real omarchy-theme-set-templates under a temporary HOME, so it
 # writes only inside a mktemp dir. That script ends with a call to
@@ -8,11 +9,12 @@
 set -euo pipefail
 
 repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+theme=$(cd "${1:-$repo}" && pwd)
 omarchy_path=${OMARCHY_PATH:-/usr/share/omarchy}
 templates_dir="$omarchy_path/default/themed"
 renderer="$omarchy_path/bin/omarchy-theme-set-templates"
 color_parser="$omarchy_path/bin/omarchy-theme-color"
-colors="$repo/colors.toml"
+colors="$theme/colors.toml"
 
 errors=0
 fail() {
@@ -100,7 +102,7 @@ done
 # must match what colors.toml renders to.
 for var in active_border_color inactive_border_color; do
   rendered=$(grep -m1 "^local $var = " "$next/hyprland.lua" | tr '[:upper:]' '[:lower:]' || true)
-  shipped=$(grep -m1 "^local $var = " "$repo/hyprland.lua" | tr '[:upper:]' '[:lower:]' || true)
+  shipped=$(grep -m1 "^local $var = " "$theme/hyprland.lua" | tr '[:upper:]' '[:lower:]' || true)
   [[ -n $rendered && $rendered == "$shipped" ]] ||
     fail "hyprland.lua $var differs from the render: '${shipped}' vs '${rendered}'"
 done
@@ -114,12 +116,12 @@ sections_and_keys() {
     /^[[:space:]]*[A-Za-z0-9_-]+[[:space:]]*=/ { split($0, kv, "="); gsub(/[[:space:]]/, "", kv[1]); print section "." kv[1] }
   ' "$1" | sort -u
 }
-if [[ -f $repo/shell.toml ]]; then
+if [[ -f $theme/shell.toml ]]; then
   while IFS= read -r entry; do
     [[ $entry == font.base-size ]] && continue
     fail "shell.toml lacks '$entry' from the template"
-  done < <(comm -23 <(sections_and_keys "$next/shell.toml") <(sections_and_keys "$repo/shell.toml"))
-  if grep -qE '^[[:space:]]*base-size[[:space:]]*=' "$repo/shell.toml"; then
+  done < <(comm -23 <(sections_and_keys "$next/shell.toml") <(sections_and_keys "$theme/shell.toml"))
+  if grep -qE '^[[:space:]]*base-size[[:space:]]*=' "$theme/shell.toml"; then
     fail "shell.toml sets [font] base-size"
   fi
 else
@@ -130,4 +132,4 @@ if ((errors > 0)); then
   printf 'render.sh: %d failure(s)\n' "$errors" >&2
   exit 1
 fi
-printf 'render.sh: OK (%d templates rendered, colors.toml valid)\n' "$template_count"
+printf 'render.sh: OK (%s: %d templates rendered, colors.toml valid)\n' "${theme##*/}" "$template_count"
