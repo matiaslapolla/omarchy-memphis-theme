@@ -1,0 +1,181 @@
+# Memphis shell surfaces. This file replaces the shell.toml that Omarchy
+# generates from default/themed/shell.toml.tpl, so it keeps every section and
+# key of that template. Keep it in step with the template after an update;
+# tests/render.sh checks it.
+#
+# colors.toml holds the MS-DOS Prompt terminal palette (black background,
+# #C0C0C0 text), and the shell reads its foreground/background roles from
+# there. So every surface below names its colors explicitly instead of using
+# the roles.
+#
+# Bevel borders: the shell draws a gradient along the angle in screen space
+# (y down), so 45deg runs from the top-left corner to the bottom-right one.
+
+[bar]
+# Alpha companions (where present) range from 0 (invisible) to 1 (opaque).
+background       = "#C0C0C0"
+background-alpha = 1.0
+text             = "#000000"
+# Modules calling attention to themselves (recording, voxtype, alerts, updates)
+active           = "#000080"
+# Cross-axis size at font base-size 12. size-horizontal is the height of
+# top/bottom bars; size-vertical is the width of left/right bars. With
+# scale-with-font enabled, these grow/shrink with [font] base-size.
+scale-with-font  = true
+size-horizontal  = 26
+size-vertical    = 28
+# Custom keys read by the memphis.bar plugin (extras/bar-bevel). The stock
+# bar ignores them.
+bevel-light      = "#FFFFFF"
+bevel-dark       = "#808080"
+
+[hyprland]
+# Same gradients as hyprland_active_border in colors.toml and hyprland.lua.
+active-border            = "rgb(000080) rgb(1084D0) 0deg"
+active-border-foreground = "rgb(000080) rgb(1084D0) 0deg"
+
+[controls]
+# Border widths accept N, "Y X", "T X B", or "T R B L". Each *-border accepts
+# a solid color or a gradient such as "rgb(...) rgb(...) 45deg".
+
+# Normal: idle control chrome, a raised bevel.
+normal-color        = "#000000"
+normal-fill-alpha   = 0.04
+normal-border       = "rgb(FFFFFF) rgb(808080) 45deg"
+normal-border-width = 1
+normal-border-alpha = 1.0
+
+# Hover-cursor: mouse hover and the panel keyboard cursor.
+hover-cursor-color        = "#000000"
+hover-cursor-fill-alpha   = 0.08
+hover-cursor-border       = "#000000"
+hover-cursor-border-width = 1
+hover-cursor-border-alpha = 0.5
+
+# Focus: Qt activeFocus.
+focus-color        = "#000080"
+focus-fill-alpha   = 0.08
+focus-border       = "#000080"
+focus-border-width = 1
+focus-border-alpha = 1.0
+
+# Selected: persistent chosen/current state.
+selected-color        = "#000080"
+selected-fill-alpha   = 0.18
+selected-border       = "#000080"
+selected-border-width = 1
+selected-border-alpha = 1.0
+
+# Momentary fills. selection-color tints selected text in inputs.
+pressed-fill-alpha   = 0.22
+selection-color      = "#000080"
+selection-fill-alpha = 0.35
+
+[spacing]
+# `scale` multiplies shared margins, gaps, padding, controls, and panel
+# dimensions. Per-token overrides (in px) pin individual values; see the
+# stock template for the list.
+scale = 1.0
+scale-with-font = true
+
+[font]
+# base-size is left unset on purpose, so the shell default (12) or the
+# user's ~/.config/omarchy/shell.toml decides it.
+# base-size = 12
+
+[popups]
+# Shared by every bar flyout (dropdowns, OSD, popup cards).
+background       = "#C0C0C0"
+background-alpha = 1.0
+text             = "#000000"
+border           = "rgb(FFFFFF) rgb(808080) 45deg"
+border-alpha     = 1.0
+border-width     = 2
+
+[tooltip]
+background       = "#FFFFE1"
+background-alpha = 1.0
+text             = "#000000"
+border           = "rgb(FFFFFF) rgb(808080) 45deg"
+border-alpha     = 1.0
+border-width     = 2
+
+[notifications]
+background       = "#C0C0C0"
+background-alpha = 1.0
+text             = "#000000"
+border           = "rgb(FFFFFF) rgb(808080) 45deg"
+border-alpha     = 1.0
+border-width     = 2
+countdown        = "#000080"
+
+[launcher]
+# scrim is the full-screen dim layer behind the card; background is the card.
+background                = "#C0C0C0"
+background-alpha          = 1.0
+text                      = "#000000"
+border                    = "rgb(FFFFFF) rgb(808080) 45deg"
+border-alpha              = 1.0
+border-width              = 2
+scrim                     = "#000000"
+scrim-alpha               = 0.5
+selected-background       = "#000080"
+selected-background-alpha = 1.0
+selected-text             = "#FFFFFF"
+selected-border           = "#000080"
+selected-border-alpha     = 1.0
+
+[menu]
+# Clipboard and emojis inherit these tokens.
+background                = "#C0C0C0"
+background-alpha          = 1.0
+text                      = "#000000"
+border                    = "rgb(FFFFFF) rgb(808080) 45deg"
+border-alpha              = 1.0
+border-width              = 2
+scrim                     = "#000000"
+scrim-alpha               = 0.5
+selected-background       = "#000080"
+selected-background-alpha = 1.0
+selected-text             = "#FFFFFF"
+selected-border           = "#000080"
+selected-border-alpha     = 1.0
+
+[polkit]
+background       = "#C0C0C0"
+background-alpha = 1.0
+text             = "#000000"
+text-error       = "#800000"
+border           = "rgb(FFFFFF) rgb(808080) 45deg"
+border-error     = "#800000"
+border-alpha     = 1.0
+border-width     = 2
+scrim            = "#000000"
+scrim-alpha      = 0.5
+# accent is the lock-icon glyph color + text-selection tint.
+accent           = "#000080"
+
+[lock]
+# background is the centered password card.
+background       = "#C0C0C0"
+background-alpha = 1.0
+text             = "#000000"
+placeholder      = "#808080"
+text-error       = "#800000"
+border           = "rgb(FFFFFF) rgb(808080) 45deg"
+border-active    = "hyprland.active-border"
+border-error     = "#800000"
+border-alpha     = 1.0
+border-width     = 2
+selection        = "#000080"
+selection-alpha  = 0.45
+
+[image-picker]
+# The picker has no card. Its text sits on the images with an outline in
+# the colors.toml background (#000000), and its delete dialog uses that same
+# black as background, so the text stays light.
+text                    = "#FFFFFF"
+selected-border         = "#000080"
+selected-border-alpha   = 1.0
+unselected-border       = "#C0C0C0"
+unselected-border-alpha = 0.28

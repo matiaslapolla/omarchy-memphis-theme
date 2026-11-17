@@ -47,7 +47,7 @@ Win98 "Windows Standard" values (98.css, Chicago95, Wine `syscolor.c`):
 - `hyprland.lua`: `rounding = 0`, `border_size = 3`, no shadow, no blur, animations off. Omarchy drops this file for a git-cloned theme. The Installer links the repo, so Omarchy keeps it.
 - `shell.toml`: the full shell template with Win98 values.
   - The bar is button face with black text and a `#000080` active color.
-  - Popups, menu, notifications and polkit use button face with a 2 px `#FFFFFF`→`#808080` 135deg border.
+  - Popups, menu, notifications and polkit use button face with a 2 px `#FFFFFF`→`#808080` 45deg border (Qt y-down axis, so 45deg puts white at the top left).
   - The menu selection is `#000080` with white text. Tooltips are `#FFFFE1`.
   - It adds custom keys `bar.bevel-light = "#FFFFFF"` and `bar.bevel-dark = "#808080"`.
 - `icons.theme`: `Chicago95`.
