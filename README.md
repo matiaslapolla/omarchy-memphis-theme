@@ -10,7 +10,7 @@ It comes in three Variants, each one a separate Omarchy theme:
 |---|---|---|---|---|
 | `memphis` | Light gray `#E8E8E8`, black text | `#C0C0C0` | Teal | Chicago95 |
 | `memphis-gray` | Medium gray `#B4B4B4`, black text | `#A8A8A8` | Teal | Chicago95 |
-| `memphis-dark` | Charcoal `#262626`, light gray text | `#3A3A3A` | Dark teal | Omarchy's dark GTK theme |
+| `memphis-dark` | Charcoal `#262626`, light gray text | `#3A3A3A` | Dark teal | Omarchy's Adwaita-dark |
 
 | `memphis` | `memphis-gray` | `memphis-dark` |
 |---|---|---|

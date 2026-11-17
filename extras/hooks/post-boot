@@ -1,7 +1,6 @@
 #!/bin/bash
 # Memphis post-boot hook. ~/.config/hypr/cursor.lua sets the user's cursor at
-# login, so this sets the Memphis cursor again while a Memphis slug (memphis,
-# memphis-gray, memphis-dark) is the theme.
+# login, so this sets the Memphis cursor again while a Memphis slug is the theme.
 
 set -euo pipefail
 

@@ -1,7 +1,7 @@
 # Memphis Gray shell surfaces. This file replaces the shell.toml that Omarchy
 # generates from default/themed/shell.toml.tpl, so it keeps every section and
-# key of that template. Keep it in step with the root shell.toml;
-# tests/render.sh checks the keys.
+# key of that template. tests/render.sh checks the keys. Change it together
+# with the root shell.toml.
 #
 # The surfaces are a medium gray (#A8A8A8) instead of button face. The bevel
 # light and dark lines move with it, so the 3D edge still shows.

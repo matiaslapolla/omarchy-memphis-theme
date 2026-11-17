@@ -66,6 +66,8 @@ Omarchy has no light and dark modes inside one theme. Each Variant is a separate
 | `memphis-gray` | light | `#B4B4B4`, black text | `#A8A8A8`, black text | teal `#008080` | Chicago95 |
 | `memphis-dark` | dark | `#262626`, `#D8D8D8` text | `#3A3A3A`, `#E0E0E0` text | dark teal `#004040` | Omarchy's Adwaita-dark |
 
+`memphis-dark` uses `#4FA6E8` for the accent, focus and selected controls, because navy does not show on charcoal. Its terminal selection is `#1C5FA8` with white text. Its tooltip is `#4A4A38` with `#FFFFE1` text.
+
 - The repo root is `memphis`. `variants/memphis-gray/` and `variants/memphis-dark/` hold the other two. Each one is a full theme dir with real files, because `omarchy-theme-set` copies a theme with `cp -r`, which keeps a relative symlink and breaks it.
 - Each Variant has its own `colors.toml`, `shell.toml`, `hyprland.lua`, `icons.theme`, `backgrounds/`, `preview.png`, `preview-unlock.png` and `unlock.png`.
 - A Variant `hyprland.lua` is the root file with other border colors. `tests/variants.sh` checks that the other lines are the same.
@@ -116,9 +118,10 @@ Omarchy resets `gtk-theme` itself on each switch.
   - If `.bar.id` is `memphis.bar`, it does nothing.
   - If `.bar.id` names another bar, it keeps that bar. It prints a warning and the command `omarchy bar use memphis.bar`.
 - Saved state does not record the Bar engine.
-- If a theme dir exists and is not our link, it moves it to `~/.config/omarchy/memphis-theme.old.<timestamp>`, outside `themes/`, so `omarchy-theme-list` does not show it.
+- If a Variant theme dir exists and is not our link, it moves it to `~/.config/omarchy/<slug>-theme.old.<timestamp>`, outside `themes/`, so `omarchy-theme-list` does not show it.
 - `--no-packages` skips `yay`. `--dry-run` prints each action and changes nothing.
-- At the end it prints `omarchy theme set memphis`. It does not run it.
+- If a Variant dir is missing from the repo, it stops before it changes anything.
+- At the end it prints `omarchy theme set` for each Variant. It does not run it.
 - `uninstall.sh` removes the hooks, the three links, the Bevel bar and the font. If a Memphis slug is active, it tells the user to switch theme first.
 - If `.bar.id` is `memphis.bar`, `uninstall.sh` runs `omarchy bar reset` before it removes the plugin. If the reset fails, it keeps the plugin and tells the user to run `omarchy bar reset`.
 - `--dry-run` in both scripts prints the `omarchy bar` command and does not run it.

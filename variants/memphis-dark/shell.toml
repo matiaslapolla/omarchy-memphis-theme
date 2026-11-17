@@ -1,7 +1,7 @@
 # Memphis Dark shell surfaces. This file replaces the shell.toml that Omarchy
 # generates from default/themed/shell.toml.tpl, so it keeps every section and
-# key of that template. Keep it in step with the root shell.toml;
-# tests/render.sh checks the keys.
+# key of that template. tests/render.sh checks the keys. Change it together
+# with the root shell.toml.
 #
 # The surfaces are charcoal (#3A3A3A) with light text. The bevel keeps a
 # lighter top-left line and a near-black bottom-right line. The accent is the

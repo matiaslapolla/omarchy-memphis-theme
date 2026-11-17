@@ -64,7 +64,6 @@ palette() {
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 assets=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
-# gen_theme <variant> <theme-dir>
 gen_theme() {
   local out=$2
   palette "$1"

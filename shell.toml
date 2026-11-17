@@ -174,8 +174,8 @@ selection-alpha  = 0.45
 
 [image-picker]
 # The picker has no card. It tints the unselected images and outlines its
-# text in the colors.toml background (#FFFFFF), and its delete dialog uses
-# that same white as background, so the text stays dark.
+# text in the colors.toml background (#E8E8E8), and its delete dialog uses
+# that same light gray as background, so the text stays dark.
 text                    = "#000000"
 selected-border         = "#000080"
 selected-border-alpha   = 1.0
