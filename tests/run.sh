@@ -5,13 +5,16 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-shellcheck_bin=${SHELLCHECK:-shellcheck}
-if ! "$shellcheck_bin" --version >/dev/null 2>&1; then
-  echo "run.sh: '$shellcheck_bin' does not run; set SHELLCHECK=/path/to/shellcheck" >&2
+shellcheck_cmd=("${SHELLCHECK:-shellcheck}")
+if ! "${shellcheck_cmd[@]}" --version >/dev/null 2>&1 && command -v mise >/dev/null 2>&1; then
+  shellcheck_cmd=(mise exec shellcheck -- shellcheck)
+fi
+if ! "${shellcheck_cmd[@]}" --version >/dev/null 2>&1; then
+  echo "run.sh: shellcheck does not run; set SHELLCHECK=/path/to/shellcheck" >&2
   exit 1
 fi
 
-"$shellcheck_bin" install.sh uninstall.sh extras/hooks/* extras/bar-bevel/build.sh \
+"${shellcheck_cmd[@]}" install.sh uninstall.sh extras/hooks/* extras/bar-bevel/build.sh \
   extras/assets/gen-images.sh tests/*.sh
 echo "shellcheck: OK"
 
