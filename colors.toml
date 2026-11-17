@@ -1,34 +1,42 @@
 mode = "light"
 
+# Terminal palette "Notepad": black text on white, navy selection.
+# The stock templates write ANSI 0 from background, ANSI 7 from foreground,
+# ANSI 8 from muted, ANSI 15 and the cursor from bright_foreground.
+
 accent = "#000080"
-selection = "#000080"
+# btop, tmux, Neovim visual mode and hermes draw text on `selection`, so it
+# stays light. The terminals use selection_background/foreground instead.
+selection = "#C0C0C0"
+selection_background = "#000080"
+selection_foreground = "#FFFFFF"
 muted = "#808080"
 
-background = "#000000"
-dark_background = "#000000"
-darker_background = "#000000"
-lighter_background = "#202020"
+background = "#FFFFFF"
+dark_background = "#F0F0F0"
+darker_background = "#DFDFDF"
+lighter_background = "#DFDFDF"
 
-foreground = "#C0C0C0"
-dark_foreground = "#808080"
-light_foreground = "#C0C0C0"
-bright_foreground = "#FFFFFF"
+foreground = "#000000"
+dark_foreground = "#606060"
+light_foreground = "#404040"
+bright_foreground = "#000000"
 
 red = "#800000"
-yellow = "#808000"
-orange = "#808000"
-green = "#008000"
-cyan = "#008080"
+yellow = "#806000"
+orange = "#806000"
+green = "#007000"
+cyan = "#007070"
 blue = "#000080"
 magenta = "#800080"
 brown = "#804000"
 
-bright_red = "#FF0000"
-bright_yellow = "#FFFF00"
-bright_green = "#00FF00"
-bright_cyan = "#00FFFF"
-bright_blue = "#0000FF"
-bright_magenta = "#FF00FF"
+bright_red = "#C00000"
+bright_yellow = "#A07800"
+bright_green = "#009000"
+bright_cyan = "#008B8B"
+bright_blue = "#0000C0"
+bright_magenta = "#A000A0"
 
 hyprland_active_border = "rgb(000080) rgb(1084D0) 0deg"
 hyprland_inactive_border = "rgb(808080) rgb(B5B5B5) 0deg"

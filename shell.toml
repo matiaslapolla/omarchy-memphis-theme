@@ -3,10 +3,10 @@
 # key of that template. Keep it in step with the template after an update;
 # tests/render.sh checks it.
 #
-# colors.toml holds the MS-DOS Prompt terminal palette (black background,
-# #C0C0C0 text), and the shell reads its foreground/background roles from
-# there. So every surface below names its colors explicitly instead of using
-# the roles.
+# colors.toml holds the Notepad terminal palette (white background, black
+# text), and the shell reads its foreground/background roles from there. The
+# Win98 surfaces are button face, not white, so every surface below names its
+# colors explicitly instead of using the roles.
 #
 # Bevel borders: the shell draws a gradient along the angle in screen space
 # (y down), so 45deg runs from the top-left corner to the bottom-right one.
@@ -171,11 +171,11 @@ selection        = "#000080"
 selection-alpha  = 0.45
 
 [image-picker]
-# The picker has no card. Its text sits on the images with an outline in
-# the colors.toml background (#000000), and its delete dialog uses that same
-# black as background, so the text stays light.
-text                    = "#FFFFFF"
+# The picker has no card. It tints the unselected images and outlines its
+# text in the colors.toml background (#FFFFFF), and its delete dialog uses
+# that same white as background, so the text stays dark.
+text                    = "#000000"
 selected-border         = "#000080"
 selected-border-alpha   = 1.0
-unselected-border       = "#C0C0C0"
+unselected-border       = "#000000"
 unselected-border-alpha = 0.28

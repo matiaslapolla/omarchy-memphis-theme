@@ -83,6 +83,17 @@ magick -size ${W}x${H} xc:'#008080' +antialias -draw "$draw" \
 
 # Backgrounds: original patterns in the Win98 desktop teal.
 mkdir -p "$out/backgrounds"
+
+# 0-teal-omarchy.png: Omarchy's own wordmark (logo.txt) in white with a hard
+# Win98 drop shadow. Omarchy cover-crops the wallpaper, and a 1440x2560
+# portrait screen shows only the central 1215 px of the 3840 px width, so the
+# 81-column wordmark at 12 px per cell (972 px) must stay narrower than that.
+assets=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+wordmark() { python3 -I "$assets/wordmark.py" "$assets/omarchy-wordmark.txt" 12 24 3840 2160 "$@"; }
+magick -size 3840x2160 xc:'#008080' +antialias \
+  -draw "$(wordmark 6 6 '#004848') $(wordmark 0 0 '#FFFFFF')" \
+  -type Palette -strip "$out/backgrounds/0-teal-omarchy.png"
+
 magick -size 3840x2160 xc:'#008080' -define png:color-type=2 "$out/backgrounds/1-teal.png"
 magick -size 3840x2160 tile:pattern:gray50 +level-colors '#007878','#008888' "$out/backgrounds/2-teal-dither.png"
 magick -size 3840x2160 tile:pattern:hs_diagcross +level-colors '#007a7a','#008080' "$out/backgrounds/3-teal-weave.png"
