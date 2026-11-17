@@ -1,6 +1,7 @@
 #!/bin/bash
 # Memphis post-boot hook. ~/.config/hypr/cursor.lua sets the user's cursor at
-# login, so this sets the Memphis cursor again while memphis is the theme.
+# login, so this sets the Memphis cursor again while a Memphis slug (memphis,
+# memphis-gray, memphis-dark) is the theme.
 
 set -euo pipefail
 
@@ -9,7 +10,11 @@ SCHEMA="org.gnome.desktop.interface"
 THEME_NAME_FILE="$HOME/.local/state/omarchy/current/theme.name"
 ICON_DIRS="${MEMPHIS_ICON_DIRS:-$HOME/.local/share/icons:$HOME/.icons:/usr/share/icons}"
 
-[[ -f $THEME_NAME_FILE && $(<"$THEME_NAME_FILE") == "memphis" ]] || exit 0
+[[ -f $THEME_NAME_FILE ]] || exit 0
+case "$(<"$THEME_NAME_FILE")" in
+  memphis | memphis-gray | memphis-dark) ;;
+  *) exit 0 ;;
+esac
 
 found=0
 IFS=: read -ra dirs <<<"$ICON_DIRS"

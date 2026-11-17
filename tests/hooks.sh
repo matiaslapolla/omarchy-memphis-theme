@@ -162,6 +162,43 @@ cmp "$TMP/gtk.first" "$GTK4_CSS" || fail "a second memphis switch changed gtk.cs
 eq "$(grep -c 'memphis:begin' "$GTK4_CSS")" "1" "block count"
 ok "memphis to memphis keeps the first saved state and one block"
 
+# ------------------------------------------------------------ Variants
+
+# memphis-gray gets the full Win98 look. memphis-dark keeps Omarchy's dark GTK
+# theme and drops the Chicago95 import, and the first saved state survives.
+seed
+switch_to memphis-gray Adwaita
+eq "$(gs gtk-theme)" "'Chicago95'" "memphis-gray gtk-theme"
+eq "$(gs cursor-theme)" "'Chicago95_Cursor_Black'" "memphis-gray cursor-theme"
+eq "$(jq -r '.bar.position' "$SHELL_JSON")" "bottom" "memphis-gray bar position"
+grep -qxF '/* memphis:begin */' "$GTK4_CSS" || fail "memphis-gray did not add the gtk.css block"
+cp "$SAVED" "$TMP/saved.gray"
+ok "memphis-gray applies gtk-theme, cursor, position and the gtk.css block"
+
+switch_to memphis-dark Adwaita-dark
+eq "$(gs gtk-theme)" "'Adwaita-dark'" "memphis-dark gtk-theme"
+eq "$(gs cursor-theme)" "'Chicago95_Cursor_Black'" "memphis-dark cursor-theme"
+eq "$(gs font-name)" "'W95FA 11'" "memphis-dark font-name"
+eq "$(cursor)" "Chicago95_Cursor_Black 24" "memphis-dark hyprctl setcursor"
+eq "$(jq -r '.bar.position' "$SHELL_JSON")" "bottom" "memphis-dark bar position"
+cmp "$TMP/seed/gtk.css" "$GTK4_CSS" || fail "memphis-dark left the Chicago95 import in gtk.css"
+cmp "$TMP/saved.gray" "$SAVED" || fail "a switch between Memphis slugs changed saved.env"
+ok "memphis-dark keeps the dark GTK theme, removes the import and keeps the saved state"
+
+switch_to jade-horse Adwaita-dark
+assert_seed_restored
+ok "memphis-gray then memphis-dark then jade-horse restores the seed"
+
+seed
+switch_to memphis-dark Adwaita-dark
+eq "$(gs gtk-theme)" "'Adwaita-dark'" "memphis-dark first gtk-theme"
+cmp "$TMP/seed/gtk.css" "$GTK4_CSS" || fail "memphis-dark changed gtk.css"
+grep -qx 'gtk4_css_existed=1' "$SAVED" || fail "memphis-dark saved the wrong gtk.css state: $(cat "$SAVED")"
+switch_to jade-horse Adwaita-dark
+assert_seed_restored
+assert_no_live_calls
+ok "memphis-dark from another theme leaves gtk.css alone and restores the seed"
+
 # ------------------------------------------------------------ jade-horse
 
 switch_to jade-horse Adwaita-dark
@@ -324,12 +361,20 @@ rm -f "$STUB_STATE/hyprctl.cursor"
 bash "$HOOKS/post-boot"
 eq "$(cursor)" "Chicago95_Cursor_Black 24" "post-boot setcursor"
 eq "$(gs cursor-theme)" "'Chicago95_Cursor_Black'" "post-boot cursor-theme"
-echo jade-horse >"$THEME_NAME"
-rm -f "$STUB_STATE/hyprctl.cursor"
-: >"$STUB_STATE/calls.log"
-bash "$HOOKS/post-boot"
-[[ ! -s $STUB_STATE/calls.log ]] || fail "post-boot ran commands under another theme"
-ok "post-boot sets the cursor only under memphis"
+for slug in memphis-gray memphis-dark; do
+  echo "$slug" >"$THEME_NAME"
+  rm -f "$STUB_STATE/hyprctl.cursor"
+  bash "$HOOKS/post-boot"
+  eq "$(cursor)" "Chicago95_Cursor_Black 24" "post-boot setcursor under $slug"
+done
+for slug in jade-horse memphis-old; do
+  echo "$slug" >"$THEME_NAME"
+  rm -f "$STUB_STATE/hyprctl.cursor"
+  : >"$STUB_STATE/calls.log"
+  bash "$HOOKS/post-boot"
+  [[ ! -s $STUB_STATE/calls.log ]] || fail "post-boot ran commands under $slug"
+done
+ok "post-boot sets the cursor only under a Memphis slug"
 
 # ------------------------------------------------------------ post-update
 

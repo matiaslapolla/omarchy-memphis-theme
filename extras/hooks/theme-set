@@ -1,8 +1,10 @@
 #!/bin/bash
 # Memphis theme hook. Omarchy runs it after each theme switch with the theme
-# slug as $1. On memphis it saves the user's values once and applies the
-# Chicago95 GTK theme, cursor, UI font and bottom bar position. On any other
-# slug it restores the saved values and deletes the saved state.
+# slug as $1. On a Memphis slug (memphis, memphis-gray, memphis-dark) it saves
+# the user's values once and applies the cursor, UI font and bottom bar
+# position. memphis and memphis-gray also get the Chicago95 GTK theme, which
+# has no dark version. On any other slug it restores the saved values and
+# deletes the saved state.
 #
 # It never switches the bar engine. `omarchy bar use` reloads the shell config
 # while omarchy-theme-set still applies the theme over IPC, and the new bar
@@ -37,6 +39,12 @@ MARK_END="/* memphis:end */"
 warn() { echo "memphis theme-set: $*" >&2; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
+is_memphis_slug() {
+  case "$1" in
+    memphis | memphis-gray | memphis-dark) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 # ------------------------------------------------------------------ lookups
 
 find_in_dirs() {
@@ -196,17 +204,22 @@ set_bar_position() {
 
 # ------------------------------------------------------------------ apply
 
+# memphis-dark keeps the dark GTK theme that Omarchy set for its mode.
 apply_memphis() {
+  local slug="$1" chicago=1
+  [[ $slug != memphis-dark ]] || chicago=0
   save_state || warn "could not save the current values; continuing"
 
   if ! have gsettings; then
     warn "gsettings not found; skipping GTK theme, cursor and font"
   else
-    if find_in_dirs "$THEME_DIRS" "$GTK_THEME/index.theme" >/dev/null ||
-      find_in_dirs "$THEME_DIRS" "$GTK_THEME/gtk-3.0" >/dev/null; then
-      gsettings set "$SCHEMA" gtk-theme "$GTK_THEME" || warn "could not set gtk-theme"
-    else
-      warn "$GTK_THEME GTK theme not installed; skipping gtk-theme"
+    if ((chicago)); then
+      if find_in_dirs "$THEME_DIRS" "$GTK_THEME/index.theme" >/dev/null ||
+        find_in_dirs "$THEME_DIRS" "$GTK_THEME/gtk-3.0" >/dev/null; then
+        gsettings set "$SCHEMA" gtk-theme "$GTK_THEME" || warn "could not set gtk-theme"
+      else
+        warn "$GTK_THEME GTK theme not installed; skipping gtk-theme"
+      fi
     fi
 
     if find_in_dirs "$ICON_DIRS" "$CURSOR_THEME/cursors" >/dev/null; then
@@ -228,7 +241,9 @@ apply_memphis() {
   fi
 
   local import_css
-  if import_css=$(find_in_dirs "$THEME_DIRS" "$GTK_THEME/gtk-4.0/gtk.css"); then
+  if ((!chicago)); then
+    remove_css_block || warn "could not clean $GTK4_CSS"
+  elif import_css=$(find_in_dirs "$THEME_DIRS" "$GTK_THEME/gtk-4.0/gtk.css"); then
     add_css_block "$import_css" || warn "could not update $GTK4_CSS"
   else
     warn "$GTK_THEME gtk-4.0/gtk.css not found; skipping GTK4 import"
@@ -297,8 +312,8 @@ if [[ -f $THEME_NAME_FILE && $(<"$THEME_NAME_FILE") != "$SLUG" ]]; then
   exit 0
 fi
 
-if [[ $SLUG == "memphis" ]]; then
-  apply_memphis
+if is_memphis_slug "$SLUG"; then
+  apply_memphis "$SLUG"
 else
   restore
 fi
