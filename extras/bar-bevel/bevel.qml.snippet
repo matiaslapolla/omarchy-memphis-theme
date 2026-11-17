@@ -1,0 +1,35 @@
+
+      // memphis-bevel: inserted by omarchy-memphis-theme extras/bar-bevel/build.sh.
+      // A line draws only when the theme's shell.toml sets its key, so other themes see no change.
+      Item {
+        id: memphisBevel
+
+        anchors.fill: parent
+        z: 1
+        // The same access to root as the stock barStrip bindings, which qmllint cannot resolve.
+        // qmllint disable unqualified
+        visible: !root.transparent
+        readonly property string position: root.position
+        // qmllint enable unqualified
+        readonly property bool vertical: position === "left" || position === "right"
+        readonly property string lightSpec: Commons.Color.pick("bar.bevel-light", "")
+        readonly property string darkSpec: Commons.Color.pick("bar.bevel-dark", "")
+
+        Rectangle {
+          visible: memphisBevel.lightSpec !== ""
+          color: Commons.Color.flatColor(memphisBevel.lightSpec, "transparent")
+          x: memphisBevel.position === "left" ? memphisBevel.width - 1 : 0
+          y: memphisBevel.position === "top" ? memphisBevel.height - 1 : 0
+          width: memphisBevel.vertical ? 1 : memphisBevel.width
+          height: memphisBevel.vertical ? memphisBevel.height : 1
+        }
+
+        Rectangle {
+          visible: memphisBevel.darkSpec !== ""
+          color: Commons.Color.flatColor(memphisBevel.darkSpec, "transparent")
+          x: memphisBevel.position === "right" ? memphisBevel.width - 1 : 0
+          y: memphisBevel.position === "bottom" ? memphisBevel.height - 1 : 0
+          width: memphisBevel.vertical ? 1 : memphisBevel.width
+          height: memphisBevel.vertical ? memphisBevel.height : 1
+        }
+      }
