@@ -44,14 +44,14 @@ Win98 "Windows Standard" values (98.css, Chicago95, Wine `syscolor.c`):
 ### Theme files (repo root)
 
 - `colors.toml`: `mode = "light"`. The terminal colors use the "Notepad" palette: a `#E8E8E8` background, black text and cursor, a `#000080` selection with white text, and dark Windows console colors that keep a 4.2:1 contrast or more on that gray. `selection` is `#C0C0C0`, because btop, tmux and Neovim draw dark text on it. `accent` is `#000080`. `hyprland_active_border` is the active title gradient. `hyprland_inactive_border` is the inactive gradient.
-- `hyprland.lua`: `rounding = 0`, `border_size = 3`, no shadow, no blur, animations off. It also wraps the hyprbars `add_button` call, so the titlebar buttons of floating workspaces are 24 px instead of 20. Omarchy drops this file for a git-cloned theme. The Installer links the repo, so Omarchy keeps it.
+- `hyprland.lua`: `rounding = 0`, `border_size = 3`, no shadow, no blur, animations off. It also wraps the hyprbars `add_button` call, so the titlebars of floating workspaces are 40 px high with 32 px buttons, instead of 30 and 20. Omarchy drops this file for a git-cloned theme. The Installer links the repo, so Omarchy keeps it.
 - `shell.toml`: the full shell template with Win98 values.
   - The bar is button face with black text and a `#000080` active color.
   - Popups, menu, notifications and polkit use button face with a 2 px `#FFFFFF`→`#808080` 45deg border (Qt y-down axis, so 45deg puts white at the top left).
-  - The menu selection is `#000080` with white text. Tooltips are `#FFFFE1`.
+  - The selected menu and launcher row is `#FFFFFF` with `#000080` text and border. Menu.qml draws row subtitles in the menu text color at 52% opacity on the selected row too, so a navy row would hide them. Tooltips are `#FFFFE1`.
   - It adds custom keys `bar.bevel-light = "#FFFFFF"` and `bar.bevel-dark = "#808080"`.
 - `icons.theme`: `Chicago95`.
-- `backgrounds/`: images generated with ImageMagick. `0-teal-omarchy.png` is the default: the Omarchy wordmark (`extras/assets/omarchy-wordmark.txt`, a copy of Omarchy's MIT `logo.txt`) in white with a `#004848` shadow at +6+6, 972 px wide in the center of the teal. Omarchy cover-crops the wallpaper, so the wordmark stays inside the central 1215 px that a 1440x2560 portrait screen shows. The others are solid teal, a 50% dither and a weave pattern.
+- `backgrounds/`: images generated with ImageMagick. `0-teal-omarchy.png` is the default: the Omarchy wordmark (`extras/assets/omarchy-wordmark.txt`, a copy of Omarchy's MIT `logo.txt`) in white with a `#004848` shadow at +6+6, 972 px wide in the center of the teal. Omarchy cover-crops the wallpaper, so the wordmark stays inside the central 1215 px that a 1440x2560 portrait screen shows. The other one is solid teal.
 - `preview.png`, `preview-unlock.png` and `unlock.png`: generated mock images.
 - `fonts/W95FA.otf` with `fonts/OFL.txt` (OFL-1.1, by Alina Sava).
 

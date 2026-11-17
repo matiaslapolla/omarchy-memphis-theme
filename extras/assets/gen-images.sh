@@ -95,5 +95,3 @@ magick -size 3840x2160 xc:'#008080' +antialias \
   -type Palette -strip "$out/backgrounds/0-teal-omarchy.png"
 
 magick -size 3840x2160 xc:'#008080' -define png:color-type=2 "$out/backgrounds/1-teal.png"
-magick -size 3840x2160 tile:pattern:gray50 +level-colors '#007878','#008888' "$out/backgrounds/2-teal-dither.png"
-magick -size 3840x2160 tile:pattern:hs_diagcross +level-colors '#007a7a','#008080' "$out/backgrounds/3-teal-weave.png"

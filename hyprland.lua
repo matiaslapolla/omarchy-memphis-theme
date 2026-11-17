@@ -47,15 +47,22 @@ hl.config({
   },
 })
 
--- Omarchy's floating-workspace titlebars add their buttons in
--- default/hypr/workspace-modes.lua, which loads after this file, with a fixed
--- size of 20. The hyprbars plugin is only in from the second config pass on,
--- so the wrap applies there.
-local TITLEBAR_BUTTON_SIZE = 24
+-- Omarchy's floating-workspace titlebars are set up in
+-- default/hypr/workspace-modes.lua, which loads after this file: it sets
+-- bar_height 30, then adds buttons of size 20. Wrapping add_button runs our
+-- values after Omarchy's. The hyprbars plugin is only in from the second
+-- config pass on, so the wrap applies there.
+local TITLEBAR_BUTTON_SIZE = 32
+local TITLEBAR_HEIGHT = 40
 local hyprbars = hl.plugin and hl.plugin.hyprbars
 if hyprbars and hyprbars.add_button and not hyprbars.memphis_add_button then
   hyprbars.memphis_add_button = hyprbars.add_button
+  local height_set = false
   hyprbars.add_button = function(button)
+    if not height_set then
+      height_set = true
+      hl.config({ plugin = { hyprbars = { bar_height = TITLEBAR_HEIGHT } } })
+    end
     if type(button) == "table" then
       button.size = TITLEBAR_BUTTON_SIZE
     end

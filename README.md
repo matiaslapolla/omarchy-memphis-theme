@@ -45,10 +45,10 @@ This gives the palette, the shell colors, the backgrounds and the window border 
 
 | Part | With Memphis |
 |---|---|
-| Desktop | Teal `#008080` with the Omarchy wordmark (default), or solid, dithered or woven |
-| Windows | 3 px navy-to-blue border on the active window, gray on others, no rounding, shadow, blur or animations |
+| Desktop | Teal `#008080` with the Omarchy wordmark (default), or solid teal |
+| Windows | 3 px navy-to-blue border on the active window, gray on others, no rounding, shadow, blur or animations. Floating titlebars are 40 px high with 32 px buttons |
 | Bar | Bottom, `#C0C0C0`, white edge on top, your widgets in the same order. The bar engine stays `memphis.bar` under every theme. |
-| Menu, popups, notifications | Gray with a raised edge, navy selection, yellow tooltips |
+| Menu, popups, notifications | Gray with a raised edge, a white selected row with navy text and border, yellow tooltips |
 | GTK apps | Chicago95 theme, icons and cursor, W95FA 11 as the interface font |
 | Terminal | White with black text, a navy selection and dark Windows console colors |
 

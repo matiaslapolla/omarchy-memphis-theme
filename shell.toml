@@ -119,14 +119,16 @@ border-alpha              = 1.0
 border-width              = 2
 scrim                     = "#000000"
 scrim-alpha               = 0.5
-selected-background       = "#000080"
+selected-background       = "#FFFFFF"
 selected-background-alpha = 1.0
-selected-text             = "#FFFFFF"
+selected-text             = "#000080"
 selected-border           = "#000080"
 selected-border-alpha     = 1.0
 
 [menu]
-# Clipboard and emojis inherit these tokens.
+# Clipboard and emojis inherit these tokens. The selected row is white with
+# navy text, because Menu.qml draws row subtitles in `text` at 52% opacity
+# even on the selected row, which is unreadable on navy.
 background                = "#C0C0C0"
 background-alpha          = 1.0
 text                      = "#000000"
@@ -135,9 +137,9 @@ border-alpha              = 1.0
 border-width              = 2
 scrim                     = "#000000"
 scrim-alpha               = 0.5
-selected-background       = "#000080"
+selected-background       = "#FFFFFF"
 selected-background-alpha = 1.0
-selected-text             = "#FFFFFF"
+selected-text             = "#000080"
 selected-border           = "#000080"
 selected-border-alpha     = 1.0
 
